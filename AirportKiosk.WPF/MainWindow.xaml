@@ -1,0 +1,226 @@
+﻿<Window x:Class="AirportKiosk.WPF.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Airport Translation Kiosk" 
+        Height="1080" Width="1920"
+        WindowState="Maximized"
+        WindowStyle="None"
+        Background="#f0f2f5">
+
+    <Window.Resources>
+        <!-- Button Styles -->
+        <Style x:Key="SpeakButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#4CAF50"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Padding" Value="20,15"/>
+            <Setter Property="Margin" Value="20"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Style.Triggers>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#45a049"/>
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#66bb6a"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="RecordingButtonStyle" TargetType="Button" BasedOn="{StaticResource SpeakButtonStyle}">
+            <Setter Property="Background" Value="#f44336"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#ef5350"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Text Styles -->
+        <Style x:Key="LanguageTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="32"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,20,0,10"/>
+            <Setter Property="Foreground" Value="#333"/>
+        </Style>
+
+        <Style x:Key="TranslationTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="28"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="30,20"/>
+            <Setter Property="Foreground" Value="#555"/>
+            <Setter Property="LineHeight" Value="40"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="2"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- English Section (Top Row) -->
+        <Border Grid.Row="0" Background="White" CornerRadius="10" Margin="20,20,20,10">
+            <Border.Effect>
+                <DropShadowEffect ShadowDepth="3" Direction="315" Color="Black" Opacity="0.2" BlurRadius="10"/>
+            </Border.Effect>
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- English Title -->
+                <TextBlock Grid.Row="0" 
+                          Text="ENGLISH" 
+                          Style="{StaticResource LanguageTitleStyle}"
+                          Foreground="#1976d2"/>
+
+                <!-- English Text Display -->
+                <ScrollViewer Grid.Row="1" 
+                             VerticalScrollBarVisibility="Auto" 
+                             HorizontalScrollBarVisibility="Disabled">
+                    <TextBlock x:Name="EnglishTextBlock"
+                              Style="{StaticResource TranslationTextStyle}"
+                              Text="Tap the button below to speak in English"/>
+                </ScrollViewer>
+
+                <!-- English Controls -->
+                <StackPanel Grid.Row="2" 
+                           Orientation="Horizontal" 
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,20">
+
+                    <Button x:Name="EnglishSpeakButton"
+                           Content="🎤 TAP TO SPEAK ENGLISH"
+                           Style="{StaticResource SpeakButtonStyle}"
+                           Click="EnglishSpeakButton_Click"/>
+
+                    <Button x:Name="EnglishPlayButton"
+                           Content="🔊 PLAY"
+                           Style="{StaticResource SpeakButtonStyle}"
+                           Background="#2196F3"
+                           Click="EnglishPlayButton_Click"
+                           Visibility="Collapsed"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Divider Line -->
+        <Rectangle Grid.Row="1" 
+                  Fill="#ddd" 
+                  Height="2" 
+                  Margin="40,0"/>
+
+        <!-- Japanese Section (Bottom Row) -->
+        <Border Grid.Row="2" Background="White" CornerRadius="10" Margin="20,10,20,20">
+            <Border.Effect>
+                <DropShadowEffect ShadowDepth="3" Direction="315" Color="Black" Opacity="0.2" BlurRadius="10"/>
+            </Border.Effect>
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Japanese Title -->
+                <TextBlock Grid.Row="0" 
+                          Text="日本語 (JAPANESE)" 
+                          Style="{StaticResource LanguageTitleStyle}"
+                          Foreground="#f44336"/>
+
+                <!-- Japanese Text Display -->
+                <ScrollViewer Grid.Row="1" 
+                             VerticalScrollBarVisibility="Auto" 
+                             HorizontalScrollBarVisibility="Disabled">
+                    <TextBlock x:Name="JapaneseTextBlock"
+                              Style="{StaticResource TranslationTextStyle}"
+                              Text="下のボタンをタップして日本語で話してください"
+                              FontFamily="Yu Gothic UI, Meiryo UI"/>
+                </ScrollViewer>
+
+                <!-- Japanese Controls -->
+                <StackPanel Grid.Row="2" 
+                           Orientation="Horizontal" 
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,20">
+
+                    <Button x:Name="JapaneseSpeakButton"
+                           Content="🎤 日本語で話す (TAP TO SPEAK)"
+                           Style="{StaticResource SpeakButtonStyle}"
+                           FontFamily="Yu Gothic UI, Meiryo UI"
+                           Click="JapaneseSpeakButton_Click"/>
+
+                    <Button x:Name="JapanesePlayButton"
+                           Content="🔊 再生 (PLAY)"
+                           Style="{StaticResource SpeakButtonStyle}"
+                           Background="#2196F3"
+                           FontFamily="Yu Gothic UI, Meiryo UI"
+                           Click="JapanesePlayButton_Click"
+                           Visibility="Collapsed"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Status/Loading Overlay -->
+        <Grid x:Name="StatusOverlay" 
+              Grid.RowSpan="3" 
+              Background="#80000000" 
+              Visibility="Collapsed">
+            <Border Background="White" 
+                   CornerRadius="15" 
+                   HorizontalAlignment="Center" 
+                   VerticalAlignment="Center"
+                   Padding="40">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock x:Name="StatusText" 
+                              Text="Processing..." 
+                              FontSize="24" 
+                              FontWeight="Bold"
+                              Foreground="#333"
+                              VerticalAlignment="Center"/>
+                    <TextBlock Text=" ●" 
+                              FontSize="24" 
+                              Foreground="#4CAF50"
+                              Margin="10,0,0,0">
+                        <TextBlock.RenderTransform>
+                            <RotateTransform x:Name="LoadingRotation" CenterX="10" CenterY="10"/>
+                        </TextBlock.RenderTransform>
+                        <TextBlock.Triggers>
+                            <EventTrigger RoutedEvent="Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard RepeatBehavior="Forever">
+                                        <DoubleAnimation Storyboard.TargetName="LoadingRotation"
+                                                       Storyboard.TargetProperty="Angle"
+                                                       From="0" To="360" Duration="0:0:1"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </TextBlock.Triggers>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Clear/Reset Button -->
+        <Button x:Name="ClearButton"
+               Content="🗑️ CLEAR"
+               Style="{StaticResource SpeakButtonStyle}"
+               Background="#757575"
+               HorizontalAlignment="Right"
+               VerticalAlignment="Top"
+               Margin="0,30,30,0"
+               Grid.Row="0"
+               Click="ClearButton_Click"/>
+    </Grid>
+</Window>

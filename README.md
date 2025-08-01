@@ -15,4 +15,8 @@ It aims to help non-native travelers communicate effortlessly with airport staff
 - **Extensible:** Easy to plug in new language models or APIs
 - **Secure:** No user data retained or sent to 3rd parties unless configured
 
+## 📷 Screenshot
+- <img width="2558" height="1439" alt="image" src="https://github.com/user-attachments/assets/f1e452b3-5e34-462e-97f4-d6ff08768d4b" />
+
+
 **Created by [JKC](https://github.com/iamprincejkc)**

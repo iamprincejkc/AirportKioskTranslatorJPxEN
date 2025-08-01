@@ -1,9 +1,13 @@
-﻿using AirportKiosk.Core.Models;
-using AirportKiosk.Services;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
+﻿using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Threading.Tasks;
+using AirportKiosk.Services;
+using System.Windows.Media;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
+using AirportKiosk.Core.Models;
+using System.Linq;
 
 namespace AirportKiosk.WPF
 {
@@ -20,6 +24,8 @@ namespace AirportKiosk.WPF
         private bool _isProcessing = false;
         private bool _isListening = false;
         private string _currentRecordingLanguage = "";
+        private string _selectedTargetLanguage = "";
+        private string _targetLanguageCode = "";
         private byte[] _lastRecordedAudio;
         private string _lastRecognizedText = "";
         private bool _isApiOnline = true;
@@ -52,6 +58,8 @@ namespace AirportKiosk.WPF
             InitializeServices();
             SetupAutoClearTimer();
         }
+
+        #region Window Initialization
 
         private void InitializeWindow()
         {
@@ -144,8 +152,19 @@ namespace AirportKiosk.WPF
         {
             if (!_isListening && !_isProcessing)
             {
-                _logger.LogDebug("Auto-clearing conversation due to inactivity");
-                ClearConversation();
+                _logger.LogDebug("Auto-resetting conversation due to inactivity");
+                Dispatcher.BeginInvoke(new Action(async () =>
+                {
+                    try
+                    {
+                        await ResetListeningState();
+                        ClearConversation();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error during auto-reset");
+                    }
+                }));
             }
             else
             {
@@ -158,13 +177,72 @@ namespace AirportKiosk.WPF
         private void ShowWelcomeMessage()
         {
             EnglishTextBlock.Text = _isApiOnline ?
-                "Welcome! Tap the button below to speak in English" :
-                "Welcome! Translation service is offline - limited functionality available";
+                "Select a language above, then tap the button below to speak in English" :
+                "Translation service is offline - Select a language above first";
 
-            JapaneseTextBlock.Text = _isApiOnline ?
-                "いらっしゃいませ！下のボタンをタップして日本語で話してください" :
-                "いらっしゃいませ！翻訳サービスがオフラインです";
+            if (string.IsNullOrEmpty(_selectedTargetLanguage))
+            {
+                TargetLanguageTextBlock.Text = "Choose your preferred language from the options above";
+            }
         }
+
+        #endregion
+
+        #region Language Selection Events
+
+        private void ItalianButton_Click(object sender, RoutedEventArgs e)
+        {
+            SetTargetLanguage("ITALIANO", "it", "🇮🇹", "#27ae60");
+        }
+
+        private void JapaneseButton_Click(object sender, RoutedEventArgs e)
+        {
+            SetTargetLanguage("日本語 (JAPANESE)", "ja", "🇯🇵", "#e74c3c");
+        }
+
+        private void KoreanButton_Click(object sender, RoutedEventArgs e)
+        {
+            SetTargetLanguage("한국어 (KOREAN)", "ko", "🇰🇷", "#3498db");
+        }
+
+        private void SetTargetLanguage(string displayName, string languageCode, string flag, string color)
+        {
+            _selectedTargetLanguage = displayName;
+            _targetLanguageCode = languageCode;
+
+            // Update UI
+            TargetLanguageTitle.Text = displayName;
+            TargetLanguageTitle.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color));
+
+            // Update target language content based on selected language
+            var instructions = languageCode switch
+            {
+                "it" => "Tocca il pulsante qui sotto per parlare in italiano",
+                "ja" => "下のボタンをタップして日本語で話してください",
+                "ko" => "아래 버튼을 탭하여 한국어로 말하세요",
+                _ => "Tap the button below to speak"
+            };
+
+            TargetLanguageTextBlock.Text = instructions;
+
+            // Enable and update target language button
+            var buttonText = languageCode switch
+            {
+                "it" => $"{flag} TOCCA PER PARLARE ITALIANO",
+                "ja" => $"{flag} 日本語で話す (TAP TO SPEAK)",
+                "ko" => $"{flag} 한국어로 말하기 (TAP TO SPEAK)",
+                _ => $"{flag} TAP TO SPEAK"
+            };
+
+            TargetLanguageSpeakButton.Content = buttonText;
+            TargetLanguageSpeakButton.IsEnabled = true;
+            TargetLanguageSpeakButton.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color));
+
+            _logger.LogInformation("Target language selected: {Language} ({Code})", displayName, languageCode);
+            ResetAutoClearTimer();
+        }
+
+        #endregion
 
         #region English Section Events
 
@@ -183,39 +261,39 @@ namespace AirportKiosk.WPF
             }
         }
 
-        private async void EnglishPlayButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (_isProcessing || _lastRecordedAudio == null) return;
-            ResetAutoClearTimer();
-
-            await PlayLastRecording();
-        }
-
         #endregion
 
-        #region Japanese Section Events
+        #region Target Language Section Events
 
-        private async void JapaneseSpeakButton_Click(object sender, RoutedEventArgs e)
+        private async void TargetLanguageSpeakButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_isProcessing) return;
+            if (_isProcessing || string.IsNullOrEmpty(_targetLanguageCode)) return;
             ResetAutoClearTimer();
+
+            var languageMapping = _targetLanguageCode switch
+            {
+                "ja" => "ja-JP",
+                "it" => "it-IT",
+                "ko" => "ko-KR",
+                _ => "ja-JP"
+            };
+
+            var listeningText = _targetLanguageCode switch
+            {
+                "it" => "🔴 ASCOLTANDO... TOCCA PER FERMARE",
+                "ja" => "🔴 聞いています... タップして停止",
+                "ko" => "🔴 듣고 있습니다... 탭하여 중지",
+                _ => "🔴 LISTENING... TAP TO STOP"
+            };
 
             if (!_isListening)
             {
-                await StartListening("ja-JP", JapaneseSpeakButton, "🔴 聞いています... タップして停止");
+                await StartListening(languageMapping, TargetLanguageSpeakButton, listeningText);
             }
             else
             {
                 await StopListening();
             }
-        }
-
-        private async void JapanesePlayButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (_isProcessing || _lastRecordedAudio == null) return;
-            ResetAutoClearTimer();
-
-            await PlayLastRecording();
         }
 
         #endregion
@@ -226,6 +304,22 @@ namespace AirportKiosk.WPF
         {
             try
             {
+                // Check prerequisites
+                if (!_speechService.GetAvailableRecognizers().Any())
+                {
+                    ShowError("No speech recognition engines available. Please check Windows Speech Recognition is installed.");
+                    return;
+                }
+
+                if (_isListening)
+                {
+                    _logger.LogWarning("Already listening - stopping current session first");
+                    await StopListening();
+                    await Task.Delay(500); // Give time for cleanup
+                }
+
+                _logger.LogInformation("Starting listening for language: {Language}", language);
+
                 _isListening = true;
                 _currentRecordingLanguage = language;
 
@@ -236,17 +330,36 @@ namespace AirportKiosk.WPF
                 // Show status
                 ShowStatus("Starting speech recognition...");
 
-                // Start speech recognition
+                // Start speech recognition first
                 await _speechService.StartListeningAsync(language);
+                _logger.LogDebug("Speech recognition started successfully");
 
-                // Also start audio recording for playback
-                await _audioService.StartRecordingAsync();
-                _isRecording = true;
+                // Then start audio recording for playback
+                try
+                {
+                    await _audioService.StartRecordingAsync();
+                    _isRecording = true;
+                    _logger.LogDebug("Audio recording started successfully");
+                }
+                catch (Exception audioEx)
+                {
+                    _logger.LogWarning(audioEx, "Failed to start audio recording, continuing with speech recognition only");
+                    _isRecording = false;
+                }
 
                 // Update status to show listening is active
-                ShowStatus($"🎤 Listening for {(language == "en-US" ? "English" : "Japanese")}... Speak now");
+                var languageName = language switch
+                {
+                    "en-US" => "English",
+                    "ja-JP" => "Japanese",
+                    "it-IT" => "Italian",
+                    "ko-KR" => "Korean",
+                    _ => "Unknown"
+                };
 
-                _logger.LogInformation("Started listening for language: {Language} in session: {SessionId}",
+                ShowStatus($"🎤 Listening for {languageName}... Speak now");
+
+                _logger.LogInformation("Successfully started listening for language: {Language} in session: {SessionId}",
                     language, _conversationManager.CurrentSessionId);
             }
             catch (Exception ex)
@@ -263,13 +376,13 @@ namespace AirportKiosk.WPF
             {
                 if (!_isListening) return;
 
+                _logger.LogInformation("Stopping listening in session: {SessionId}",
+                    _conversationManager.CurrentSessionId);
+
                 _isListening = false;
 
-                // Reset buttons
+                // Reset buttons first
                 ResetButtons();
-
-                // Show processing status
-                ShowStatus("Processing speech...");
 
                 // Stop speech recognition
                 await _speechService.StopListeningAsync();
@@ -281,12 +394,10 @@ namespace AirportKiosk.WPF
                     _isRecording = false;
                 }
 
-                _logger.LogInformation("Stopped listening in session: {SessionId}",
-                    _conversationManager.CurrentSessionId);
-
                 // If we have recognized text, translate it
                 if (!string.IsNullOrEmpty(_lastRecognizedText))
                 {
+                    ShowStatus($"Translating: \"{_lastRecognizedText}\"...");
                     await TranslateRecognizedText(_lastRecognizedText);
                 }
                 else
@@ -308,27 +419,57 @@ namespace AirportKiosk.WPF
         {
             try
             {
+                _logger.LogDebug("Resetting listening state");
+
                 _isListening = false;
                 _isRecording = false;
                 _currentRecordingLanguage = "";
                 _lastRecognizedText = "";
 
-                if (_speechService != null)
+                // Stop services safely
+                try
                 {
-                    await _speechService.StopListeningAsync();
+                    if (_speechService != null)
+                    {
+                        await _speechService.StopListeningAsync();
+                        _logger.LogDebug("Speech service stopped successfully");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error stopping speech service during reset");
                 }
 
-                if (_audioService != null && _isRecording)
+                try
                 {
-                    await _audioService.StopRecordingAsync();
+                    if (_audioService != null)
+                    {
+                        await _audioService.StopRecordingAsync();
+                        _logger.LogDebug("Audio service stopped successfully");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error stopping audio service during reset");
                 }
 
                 ResetButtons();
                 HideStatus();
+
+                _logger.LogDebug("Listening state reset completed");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error resetting listening state");
+
+                // Force reset the state even if there were errors
+                _isListening = false;
+                _isRecording = false;
+                _currentRecordingLanguage = "";
+                _lastRecognizedText = "";
+
+                ResetButtons();
+                HideStatus();
             }
         }
 
@@ -338,9 +479,28 @@ namespace AirportKiosk.WPF
             EnglishSpeakButton.Content = "🎤 TAP TO SPEAK ENGLISH";
             EnglishSpeakButton.Style = (Style)FindResource("SpeakButtonStyle");
 
-            // Reset Japanese button
-            JapaneseSpeakButton.Content = "🎤 日本語で話す (TAP TO SPEAK)";
-            JapaneseSpeakButton.Style = (Style)FindResource("SpeakButtonStyle");
+            // Reset target language button
+            if (!string.IsNullOrEmpty(_targetLanguageCode))
+            {
+                var flag = _targetLanguageCode switch
+                {
+                    "it" => "🇮🇹",
+                    "ja" => "🇯🇵",
+                    "ko" => "🇰🇷",
+                    _ => "🎤"
+                };
+
+                var buttonText = _targetLanguageCode switch
+                {
+                    "it" => $"{flag} TOCCA PER PARLARE ITALIANO",
+                    "ja" => $"{flag} 日本語で話す (TAP TO SPEAK)",
+                    "ko" => $"{flag} 한국어로 말하기 (TAP TO SPEAK)",
+                    _ => $"{flag} TAP TO SPEAK"
+                };
+
+                TargetLanguageSpeakButton.Content = buttonText;
+                TargetLanguageSpeakButton.Style = (Style)FindResource("SpeakButtonStyle");
+            }
         }
 
         #endregion
@@ -351,11 +511,17 @@ namespace AirportKiosk.WPF
         {
             try
             {
+                if (string.IsNullOrEmpty(_targetLanguageCode))
+                {
+                    ShowError("Please select a target language first.");
+                    return;
+                }
+
                 ShowStatus("Translating...");
 
                 // Determine source and target languages
-                var sourceLanguage = _currentRecordingLanguage == "en-US" ? "en" : "ja";
-                var targetLanguage = sourceLanguage == "en" ? "ja" : "en";
+                var sourceLanguage = _currentRecordingLanguage == "en-US" ? "en" : _targetLanguageCode;
+                var targetLanguage = sourceLanguage == "en" ? _targetLanguageCode : "en";
 
                 _logger.LogInformation("Translating: '{Text}' from {Source} to {Target} - Session: {SessionId}",
                     recognizedText, sourceLanguage, targetLanguage, _conversationManager.CurrentSessionId);
@@ -406,7 +572,12 @@ namespace AirportKiosk.WPF
                     _logger.LogWarning("Translation failed: {Error} - Session: {SessionId}",
                         translationResponse.ErrorMessage, _conversationManager.CurrentSessionId);
 
-                    ShowError($"Translation failed: {translationResponse.ErrorMessage}");
+                    // Show the original text even if translation failed
+                    UpdateTranslationDisplayWithError(recognizedText, translationResponse.ErrorMessage,
+                        sourceLanguage, targetLanguage);
+
+                    // Also show error popup for user awareness
+                    ShowTranslationError($"Translation failed: {translationResponse.ErrorMessage}");
                 }
 
                 HideStatus();
@@ -426,18 +597,14 @@ namespace AirportKiosk.WPF
                 // Update text displays based on source language
                 if (sourceLanguage == "en")
                 {
-                    EnglishTextBlock.Text = originalText;
-                    JapaneseTextBlock.Text = translatedText;
+                    EnglishTextBlock.Text = $"You said: \"{originalText}\"";
+                    TargetLanguageTextBlock.Text = $"Translation: \"{translatedText}\"";
                 }
                 else
                 {
-                    JapaneseTextBlock.Text = originalText;
-                    EnglishTextBlock.Text = translatedText;
+                    TargetLanguageTextBlock.Text = $"You said: \"{originalText}\"";
+                    EnglishTextBlock.Text = $"Translation: \"{translatedText}\"";
                 }
-
-                // Show play buttons
-                EnglishPlayButton.Visibility = Visibility.Visible;
-                JapanesePlayButton.Visibility = Visibility.Visible;
 
                 // Add confidence indicator to status (briefly)
                 var confidencePercent = (confidence * 100).ToString("F0");
@@ -447,12 +614,70 @@ namespace AirportKiosk.WPF
 
                 ShowStatus(statusMessage);
 
-                // Auto-hide status after 3 seconds
-                Task.Delay(3000).ContinueWith(_ => Dispatcher.Invoke(HideStatus));
+                // Auto-hide status after 4 seconds
+                Task.Delay(4000).ContinueWith(_ => Dispatcher.Invoke(HideStatus));
+
+                _logger.LogInformation("UI updated - Original: '{Original}' → Translation: '{Translation}'",
+                    originalText, translatedText);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating translation display");
+            }
+        }
+
+        private void UpdateTranslationDisplayWithError(string originalText, string errorMessage,
+            string sourceLanguage, string targetLanguage)
+        {
+            try
+            {
+                // Update text displays based on source language
+                if (sourceLanguage == "en")
+                {
+                    EnglishTextBlock.Text = $"You said: \"{originalText}\"";
+                    TargetLanguageTextBlock.Text = $"❌ Translation Error: {errorMessage}";
+                }
+                else
+                {
+                    TargetLanguageTextBlock.Text = $"You said: \"{originalText}\"";
+                    EnglishTextBlock.Text = $"❌ Translation Error: {errorMessage}";
+                }
+
+                ShowStatus("❌ Translation failed - please try again");
+
+                // Auto-hide status after 4 seconds
+                Task.Delay(4000).ContinueWith(_ => Dispatcher.Invoke(HideStatus));
+
+                _logger.LogInformation("UI updated with translation error - Original: '{Original}', Error: '{Error}'",
+                    originalText, errorMessage);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating translation display with error");
+            }
+        }
+
+        private void ShowTranslationError(string message)
+        {
+            try
+            {
+                _logger.LogWarning("Showing translation error to user: {Message}", message);
+
+                // Show a less intrusive error message
+                ShowStatus($"⚠️ {message} - Speech was recognized correctly");
+
+                // Auto-hide after 6 seconds
+                Task.Delay(6000).ContinueWith(_ => Dispatcher.Invoke(() =>
+                {
+                    if (StatusText.Text.Contains("Translation failed"))
+                    {
+                        HideStatus();
+                    }
+                }));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error showing translation error");
             }
         }
 
@@ -462,7 +687,7 @@ namespace AirportKiosk.WPF
 
         private void OnSpeechRecognized(object sender, SpeechRecognizedEventArgs e)
         {
-            Dispatcher.BeginInvoke(new Action(() =>
+            Dispatcher.BeginInvoke(new Action(async () =>
             {
                 try
                 {
@@ -471,8 +696,15 @@ namespace AirportKiosk.WPF
                     _logger.LogInformation("Speech recognized: '{Text}' (Confidence: {Confidence}) - Session: {SessionId}",
                         e.Text, e.Confidence, _conversationManager.CurrentSessionId);
 
-                    // Update status to show what was recognized
-                    ShowStatus($"Recognized: \"{e.Text}\" (Confidence: {e.Confidence:P0})");
+                    // Show what was recognized immediately
+                    ShowStatus($"Recognized: \"{e.Text}\" - Processing...");
+
+                    // Auto-stop listening after recognizing speech
+                    if (_isListening)
+                    {
+                        _logger.LogInformation("Auto-stopping speech recognition after successful recognition");
+                        await StopListening();
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -483,18 +715,52 @@ namespace AirportKiosk.WPF
 
         private void OnSpeechRejected(object sender, SpeechRecognitionRejectedEventArgs e)
         {
-            Dispatcher.BeginInvoke(new Action(() =>
+            Dispatcher.BeginInvoke(new Action(async () =>
             {
                 try
                 {
                     _logger.LogDebug("Speech recognition rejected: {Reason} - Session: {SessionId}",
                         e.Reason, _conversationManager.CurrentSessionId);
 
-                    ShowStatus($"Speech not clear - {e.Reason}. Please try again.");
+                    ShowStatus($"Speech not clear - {e.Reason}. Please try again...");
+                    await Task.Delay(2000);
+
+                    // Auto-restart listening if we're still in listening mode
+                    if (!_isListening && !string.IsNullOrEmpty(_currentRecordingLanguage))
+                    {
+                        _logger.LogInformation("Auto-restarting speech recognition after rejection");
+
+                        Button button;
+                        string listeningText;
+
+                        if (_currentRecordingLanguage == "en-US")
+                        {
+                            button = EnglishSpeakButton;
+                            listeningText = "🔴 LISTENING... TAP TO STOP";
+                        }
+                        else
+                        {
+                            button = TargetLanguageSpeakButton;
+                            listeningText = _targetLanguageCode switch
+                            {
+                                "it" => "🔴 ASCOLTANDO... TOCCA PER FERMARE",
+                                "ja" => "🔴 聞いています... タップして停止",
+                                "ko" => "🔴 듣고 있습니다... 탭하여 중지",
+                                _ => "🔴 LISTENING... TAP TO STOP"
+                            };
+                        }
+
+                        await StartListening(_currentRecordingLanguage, button, listeningText);
+                    }
+                    else
+                    {
+                        HideStatus();
+                    }
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error handling speech recognition rejection");
+                    HideStatus();
                 }
             }));
         }
@@ -509,7 +775,14 @@ namespace AirportKiosk.WPF
                     if (_isListening && e.AudioLevel > 0)
                     {
                         var levelBars = new string('▊', Math.Min(10, e.AudioLevel / 10));
-                        var languageName = _currentRecordingLanguage == "en-US" ? "English" : "Japanese";
+                        var languageName = _currentRecordingLanguage switch
+                        {
+                            "en-US" => "English",
+                            "ja-JP" => "Japanese",
+                            "it-IT" => "Italian",
+                            "ko-KR" => "Korean",
+                            _ => "Unknown"
+                        };
                         StatusText.Text = $"🎤 Listening for {languageName}... {levelBars}";
                     }
                 }
@@ -573,33 +846,6 @@ namespace AirportKiosk.WPF
 
         #endregion
 
-        #region Audio Playback
-
-        private async Task PlayLastRecording()
-        {
-            try
-            {
-                if (_lastRecordedAudio == null || _lastRecordedAudio.Length == 0)
-                {
-                    ShowError("No recorded audio to play.");
-                    return;
-                }
-
-                ShowStatus("Playing recorded audio...");
-
-                await _audioService.PlayAudioAsync(_lastRecordedAudio);
-
-                HideStatus();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Audio playback failed");
-                ShowError($"Audio playback failed: {ex.Message}");
-            }
-        }
-
-        #endregion
-
         #region UI Status Methods
 
         private void ShowStatus(string message)
@@ -614,6 +860,10 @@ namespace AirportKiosk.WPF
             _isProcessing = false;
             StatusOverlay.Visibility = Visibility.Collapsed;
         }
+
+        #endregion
+
+        #region Error Handling
 
         private void ShowError(string message)
         {
@@ -654,57 +904,74 @@ namespace AirportKiosk.WPF
         {
             try
             {
+                _logger.LogDebug("Clearing conversation and resetting UI");
+
                 // Clear conversation
                 _conversationManager.ClearCurrentSession();
 
-                // Reset UI
+                // Reset UI to initial state
                 ShowWelcomeMessage();
-
-                // Hide play buttons
-                EnglishPlayButton.Visibility = Visibility.Collapsed;
-                JapanesePlayButton.Visibility = Visibility.Collapsed;
 
                 // Clear recorded data
                 _lastRecordedAudio = null;
                 _lastRecognizedText = "";
 
+                // Reset language selection if needed
+                if (string.IsNullOrEmpty(_selectedTargetLanguage))
+                {
+                    TargetLanguageTitle.Text = "SELECT LANGUAGE ABOVE";
+                    TargetLanguageTextBlock.Text = "Choose your preferred language from the options above";
+                    TargetLanguageSpeakButton.Content = "🎤 SELECT LANGUAGE FIRST";
+                    TargetLanguageSpeakButton.IsEnabled = false;
+                    TargetLanguageSpeakButton.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#95a5a6"));
+                }
+
                 HideStatus();
 
-                _logger.LogInformation("Conversation auto-cleared - New session: {SessionId}",
+                _logger.LogInformation("Conversation cleared - New session: {SessionId}",
                     _conversationManager.CurrentSessionId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error auto-clearing conversation");
+                _logger.LogError(ex, "Error clearing conversation");
             }
         }
 
         #endregion
 
-        #region Clear/Reset Button
+        #region Reset Button
 
-        private async void ClearButton_Click(object sender, RoutedEventArgs e)
+        private async void ResetButton_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                // Stop any active listening/recording
-                if (_isListening)
+                _logger.LogInformation("Reset button clicked - performing full reset");
+
+                // Stop any active listening/recording first
+                if (_isListening || _isRecording)
                 {
+                    ShowStatus("Stopping current session...");
                     await ResetListeningState();
+                    await Task.Delay(500); // Give time for cleanup
                 }
 
-                // Clear conversation
+                // Clear conversation and reset UI
                 ClearConversation();
 
                 // Reset auto-clear timer
                 ResetAutoClearTimer();
 
-                _logger.LogInformation("Manual conversation clear - New session: {SessionId}",
+                ShowStatus("✅ Reset complete");
+                await Task.Delay(1500);
+                HideStatus();
+
+                _logger.LogInformation("Full reset completed - New session: {SessionId}",
                     _conversationManager.CurrentSessionId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error clearing conversation manually");
+                _logger.LogError(ex, "Error during reset");
+                ShowError($"Reset failed: {ex.Message}");
             }
         }
 

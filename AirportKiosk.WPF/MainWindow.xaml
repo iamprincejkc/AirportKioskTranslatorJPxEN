@@ -39,34 +39,56 @@
 
         <!-- Text Styles -->
         <Style x:Key="LanguageTitleStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="32"/>
+            <Setter Property="FontSize" Value="48"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
-            <Setter Property="Margin" Value="0,20,0,10"/>
+            <Setter Property="Margin" Value="0,30,0,20"/>
             <Setter Property="Foreground" Value="#333"/>
         </Style>
 
         <Style x:Key="TranslationTextStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="28"/>
+            <Setter Property="FontSize" Value="42"/>
             <Setter Property="FontWeight" Value="Normal"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
-            <Setter Property="Margin" Value="30,20"/>
-            <Setter Property="Foreground" Value="#555"/>
-            <Setter Property="LineHeight" Value="40"/>
+            <Setter Property="Margin" Value="40,30"/>
+            <Setter Property="Foreground" Value="#333"/>
+            <Setter Property="LineHeight" Value="55"/>
         </Style>
     </Window.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="2"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
+        <!-- Language Selection Bar -->
+        <Border Grid.Row="0" Background="#2c3e50" Padding="20,15">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <TextBlock Text="Select Language / 言語を選択 / Seleziona lingua / 언어 선택:" 
+                          FontSize="24" FontWeight="Bold" Foreground="White" 
+                          VerticalAlignment="Center" Margin="0,0,30,0"/>
+
+                <Button x:Name="ItalianButton" Content="🇮🇹 Italiano" 
+                       Style="{StaticResource SpeakButtonStyle}" Background="#27ae60"
+                       Click="ItalianButton_Click" Margin="10,5"/>
+
+                <Button x:Name="JapaneseButton" Content="🇯🇵 日本語" 
+                       Style="{StaticResource SpeakButtonStyle}" Background="#e74c3c"
+                       Click="JapaneseButton_Click" Margin="10,5"/>
+
+                <Button x:Name="KoreanButton" Content="🇰🇷 한국어" 
+                       Style="{StaticResource SpeakButtonStyle}" Background="#3498db"
+                       Click="KoreanButton_Click" Margin="10,5"/>
+            </StackPanel>
+        </Border>
+
         <!-- English Section (Top Row) -->
-        <Border Grid.Row="0" Background="White" CornerRadius="10" Margin="20,20,20,10">
+        <Border Grid.Row="1" Background="White" CornerRadius="10" Margin="20,20,20,10">
             <Border.Effect>
                 <DropShadowEffect ShadowDepth="3" Direction="315" Color="Black" Opacity="0.2" BlurRadius="10"/>
             </Border.Effect>
@@ -80,6 +102,7 @@
 
                 <!-- English Title -->
                 <TextBlock Grid.Row="0" 
+                          x:Name="EnglishTitle"
                           Text="ENGLISH" 
                           Style="{StaticResource LanguageTitleStyle}"
                           Foreground="#1976d2"/>
@@ -90,38 +113,33 @@
                              HorizontalScrollBarVisibility="Disabled">
                     <TextBlock x:Name="EnglishTextBlock"
                               Style="{StaticResource TranslationTextStyle}"
-                              Text="Tap the button below to speak in English"/>
+                              Text="Select a language above, then tap the button below to speak in English"/>
                 </ScrollViewer>
 
                 <!-- English Controls -->
                 <StackPanel Grid.Row="2" 
                            Orientation="Horizontal" 
                            HorizontalAlignment="Center"
-                           Margin="0,0,0,20">
+                           Margin="0,0,0,30">
 
                     <Button x:Name="EnglishSpeakButton"
                            Content="🎤 TAP TO SPEAK ENGLISH"
                            Style="{StaticResource SpeakButtonStyle}"
+                           FontSize="28"
+                           Padding="30,20"
                            Click="EnglishSpeakButton_Click"/>
-
-                    <Button x:Name="EnglishPlayButton"
-                           Content="🔊 PLAY"
-                           Style="{StaticResource SpeakButtonStyle}"
-                           Background="#2196F3"
-                           Click="EnglishPlayButton_Click"
-                           Visibility="Collapsed"/>
                 </StackPanel>
             </Grid>
         </Border>
 
         <!-- Divider Line -->
-        <Rectangle Grid.Row="1" 
+        <Rectangle Grid.Row="2" 
                   Fill="#ddd" 
                   Height="2" 
                   Margin="40,0"/>
 
-        <!-- Japanese Section (Bottom Row) -->
-        <Border Grid.Row="2" Background="White" CornerRadius="10" Margin="20,10,20,20">
+        <!-- Target Language Section (Bottom Row) -->
+        <Border Grid.Row="3" Background="White" CornerRadius="10" Margin="20,10,20,20">
             <Border.Effect>
                 <DropShadowEffect ShadowDepth="3" Direction="315" Color="Black" Opacity="0.2" BlurRadius="10"/>
             </Border.Effect>
@@ -133,41 +151,37 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <!-- Japanese Title -->
+                <!-- Target Language Title -->
                 <TextBlock Grid.Row="0" 
-                          Text="日本語 (JAPANESE)" 
+                          x:Name="TargetLanguageTitle"
+                          Text="SELECT LANGUAGE ABOVE" 
                           Style="{StaticResource LanguageTitleStyle}"
                           Foreground="#f44336"/>
 
-                <!-- Japanese Text Display -->
+                <!-- Target Language Text Display -->
                 <ScrollViewer Grid.Row="1" 
                              VerticalScrollBarVisibility="Auto" 
                              HorizontalScrollBarVisibility="Disabled">
-                    <TextBlock x:Name="JapaneseTextBlock"
+                    <TextBlock x:Name="TargetLanguageTextBlock"
                               Style="{StaticResource TranslationTextStyle}"
-                              Text="下のボタンをタップして日本語で話してください"
+                              Text="Choose your preferred language from the options above"
                               FontFamily="Yu Gothic UI, Meiryo UI"/>
                 </ScrollViewer>
 
-                <!-- Japanese Controls -->
+                <!-- Target Language Controls -->
                 <StackPanel Grid.Row="2" 
                            Orientation="Horizontal" 
                            HorizontalAlignment="Center"
-                           Margin="0,0,0,20">
+                           Margin="0,0,0,30">
 
-                    <Button x:Name="JapaneseSpeakButton"
-                           Content="🎤 日本語で話す (TAP TO SPEAK)"
+                    <Button x:Name="TargetLanguageSpeakButton"
+                           Content="🎤 SELECT LANGUAGE FIRST"
                            Style="{StaticResource SpeakButtonStyle}"
-                           FontFamily="Yu Gothic UI, Meiryo UI"
-                           Click="JapaneseSpeakButton_Click"/>
-
-                    <Button x:Name="JapanesePlayButton"
-                           Content="🔊 再生 (PLAY)"
-                           Style="{StaticResource SpeakButtonStyle}"
-                           Background="#2196F3"
-                           FontFamily="Yu Gothic UI, Meiryo UI"
-                           Click="JapanesePlayButton_Click"
-                           Visibility="Collapsed"/>
+                           FontSize="28"
+                           Padding="30,20"
+                           Background="#95a5a6"
+                           IsEnabled="False"
+                           Click="TargetLanguageSpeakButton_Click"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -212,15 +226,15 @@
             </Border>
         </Grid>
 
-        <!-- Clear/Reset Button -->
-        <Button x:Name="ClearButton"
-               Content="🗑️ CLEAR"
+        <!-- Reset Button -->
+        <Button x:Name="ResetButton"
+               Content="🔄 RESET"
                Style="{StaticResource SpeakButtonStyle}"
                Background="#757575"
                HorizontalAlignment="Right"
                VerticalAlignment="Top"
                Margin="0,30,30,0"
                Grid.Row="0"
-               Click="ClearButton_Click"/>
+               Click="ResetButton_Click"/>
     </Grid>
 </Window>

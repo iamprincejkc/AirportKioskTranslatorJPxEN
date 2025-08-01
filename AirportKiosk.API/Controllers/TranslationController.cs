@@ -62,6 +62,34 @@ namespace AirportKiosk.API.Controllers
                     });
                 }
 
+                // Validate language codes
+                var supportedLanguages = new[] { "en", "ja", "it", "ko", "auto" };
+                if (!supportedLanguages.Contains(request.SourceLanguage?.ToLower()))
+                {
+                    _logger.LogWarning("Unsupported source language: {Language} - ID: {RequestId}",
+                        request.SourceLanguage, requestId);
+
+                    return BadRequest(new ApiError
+                    {
+                        Message = $"Unsupported source language: {request.SourceLanguage}. Supported: {string.Join(", ", supportedLanguages)}",
+                        Code = "UNSUPPORTED_LANGUAGE",
+                        RequestId = requestId
+                    });
+                }
+
+                if (!supportedLanguages.Contains(request.TargetLanguage?.ToLower()))
+                {
+                    _logger.LogWarning("Unsupported target language: {Language} - ID: {RequestId}",
+                        request.TargetLanguage, requestId);
+
+                    return BadRequest(new ApiError
+                    {
+                        Message = $"Unsupported target language: {request.TargetLanguage}. Supported: {string.Join(", ", supportedLanguages)}",
+                        Code = "UNSUPPORTED_LANGUAGE",
+                        RequestId = requestId
+                    });
+                }
+
                 // Set session ID if not provided
                 if (string.IsNullOrEmpty(request.SessionId))
                 {
@@ -81,6 +109,9 @@ namespace AirportKiosk.API.Controllers
                 {
                     _logger.LogWarning("Translation failed - ID: {RequestId}, Error: {Error}",
                         requestId, response.ErrorMessage);
+
+                    // Still return the response - let the client handle the error
+                    // This way the user sees a helpful message instead of a 500 error
                 }
 
                 return Ok(response);
@@ -220,6 +251,8 @@ namespace AirportKiosk.API.Controllers
             {
                 { "en", "English" },
                 { "ja", "Japanese" },
+                { "it", "Italian" },
+                { "ko", "Korean" },
                 { "auto", "Auto-detect" }
             };
 
@@ -227,8 +260,60 @@ namespace AirportKiosk.API.Controllers
         }
 
         /// <summary>
-        /// Detect the language of provided text
+        /// Test translation service with specific language pair
         /// </summary>
+        /// <param name="text">Text to translate</param>
+        /// <param name="source">Source language</param>
+        /// <param name="target">Target language</param>
+        /// <returns>Test translation result</returns>
+        [HttpGet("test")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        public async Task<ActionResult> TestTranslation(
+            [FromQuery] string text = "hello",
+            [FromQuery] string source = "en",
+            [FromQuery] string target = "ja")
+        {
+            try
+            {
+                var requestId = HttpContext.TraceIdentifier ?? Guid.NewGuid().ToString();
+
+                _logger.LogInformation("Test translation request - Text: '{Text}', {Source}→{Target}",
+                    text, source, target);
+
+                var request = new TranslationRequest
+                {
+                    Text = text,
+                    SourceLanguage = source,
+                    TargetLanguage = target,
+                    SessionId = requestId
+                };
+
+                var response = await _translationService.TranslateAsync(request);
+
+                var result = new
+                {
+                    Request = new { text, source, target },
+                    Response = response,
+                    Success = response.Success,
+                    Error = response.ErrorMessage,
+                    Provider = response.Provider,
+                    ProcessingTime = response.ProcessingTime.TotalMilliseconds
+                };
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                var requestId = HttpContext.TraceIdentifier ?? Guid.NewGuid().ToString();
+                _logger.LogError(ex, "Test translation error - ID: {RequestId}", requestId);
+
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    Error = ex.Message,
+                    RequestId = requestId
+                });
+            }
+        }
         /// <param name="text">Text to analyze</param>
         /// <returns>Detected language code</returns>
         [HttpPost("detect")]
@@ -263,7 +348,14 @@ namespace AirportKiosk.API.Controllers
                 {
                     { "language", detectedLanguage },
                     { "confidence", Math.Min(1.0f, confidence + 0.2f) },
-                    { "languageName", detectedLanguage == "ja" ? "Japanese" : "English" }
+                    { "languageName", detectedLanguage switch
+                        {
+                            "ja" => "Japanese",
+                            "ko" => "Korean",
+                            "it" => "Italian",
+                            _ => "English"
+                        }
+                    }
                 };
 
                 return Ok(result);

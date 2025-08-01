@@ -90,15 +90,18 @@ namespace AirportKiosk.Services
                     SessionId = sessionId ?? Guid.NewGuid().ToString()
                 };
 
-                _logger.LogInformation("Translation request - Session: {SessionId}, {Source}→{Target}, Length: {Length}",
-                    request.SessionId, request.SourceLanguage, request.TargetLanguage, text.Length);
+                _logger.LogInformation("Translation request - Session: {SessionId}, {Source}→{Target}, Length: {Length}, Text: '{Text}'",
+                    request.SessionId, request.SourceLanguage, request.TargetLanguage, text.Length, text);
 
                 var response = await ExecuteWithRetryAsync(async () =>
                 {
                     var json = JsonSerializer.Serialize(request, _jsonOptions);
+                    _logger.LogDebug("Sending JSON to API: {Json}", json);
                     var content = new StringContent(json, Encoding.UTF8, "application/json");
                     return await _httpClient.PostAsync("/api/translation/translate", content);
                 });
+
+                _logger.LogDebug("API Response Status: {StatusCode}", response.StatusCode);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -115,10 +118,26 @@ namespace AirportKiosk.Services
                 else
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
-                    _logger.LogWarning("Translation API error: {Status} - {Content}", response.StatusCode, errorContent);
+                    var statusCodeName = response.StatusCode.ToString();
 
-                    return CreateErrorResponse(text, sourceLanguage, targetLanguage, request.SessionId,
-                        $"API Error: {response.StatusCode}");
+                    _logger.LogWarning("Translation API error: {Status} ({StatusCode}) - {Content}",
+                        statusCodeName, (int)response.StatusCode, errorContent);
+
+                    var errorMessage = response.StatusCode switch
+                    {
+                        System.Net.HttpStatusCode.BadRequest => "Invalid translation request - please check the text",
+                        System.Net.HttpStatusCode.Unauthorized => "Translation service authentication failed",
+                        System.Net.HttpStatusCode.Forbidden => "Translation service access denied",
+                        System.Net.HttpStatusCode.NotFound => "Translation service endpoint not found",
+                        System.Net.HttpStatusCode.TooManyRequests => "Translation service rate limit exceeded - please try again later",
+                        System.Net.HttpStatusCode.InternalServerError => "Translation service internal error",
+                        System.Net.HttpStatusCode.BadGateway => "Translation service gateway error",
+                        System.Net.HttpStatusCode.ServiceUnavailable => "Translation service temporarily unavailable",
+                        System.Net.HttpStatusCode.GatewayTimeout => "Translation service timeout",
+                        _ => $"Translation service error: {statusCodeName} ({(int)response.StatusCode})"
+                    };
+
+                    return CreateErrorResponse(text, sourceLanguage, targetLanguage, request.SessionId, errorMessage);
                 }
             }
             catch (HttpRequestException ex)

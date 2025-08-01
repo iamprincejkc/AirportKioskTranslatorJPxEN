@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Net.Http;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using System.Web;
 using Microsoft.Extensions.Configuration;
@@ -60,6 +61,9 @@ namespace AirportKiosk.Services
                 // Prepare language pair
                 var langPair = GetLanguagePair(request.SourceLanguage, request.TargetLanguage);
 
+                _logger.LogDebug("MyMemory language pair: {LangPair} (from {Source} to {Target})",
+                    langPair, request.SourceLanguage, request.TargetLanguage);
+
                 // Build request URL
                 var encodedText = HttpUtility.UrlEncode(request.Text);
                 var requestUrl = $"{_baseUrl}/get?q={encodedText}&langpair={langPair}";
@@ -81,11 +85,13 @@ namespace AirportKiosk.Services
                 // Parse response
                 var apiResponse = JsonSerializer.Deserialize<MyMemoryApiResponse>(jsonContent, new JsonSerializerOptions
                 {
-                    PropertyNameCaseInsensitive = true
+                    PropertyNameCaseInsensitive = true,
+                    Converters = { new FlexibleStringConverter() }
                 });
 
                 if (apiResponse?.ResponseData == null)
                 {
+                    _logger.LogWarning("MyMemory API returned null response data");
                     return CreateErrorResponse(request, "Invalid response from translation service", startTime);
                 }
 
@@ -171,6 +177,17 @@ namespace AirportKiosk.Services
         {
             var processingTime = DateTime.UtcNow - startTime;
 
+            // Provide more user-friendly error messages
+            var userFriendlyMessage = errorMessage switch
+            {
+                var msg when msg.Contains("JSON") => "Translation service data format error",
+                var msg when msg.Contains("timeout") => "Translation service is taking too long - please try again",
+                var msg when msg.Contains("network") => "Network connection problem - please check internet",
+                var msg when msg.Contains("quota") => "Translation service daily limit reached",
+                var msg when msg.Contains("Invalid response") => "Translation service returned invalid data",
+                _ => errorMessage
+            };
+
             return new TranslationResponse
             {
                 TranslatedText = request.Text, // Return original text on error
@@ -181,7 +198,7 @@ namespace AirportKiosk.Services
                 Provider = "MyMemory",
                 ProcessingTime = processingTime,
                 Success = false,
-                ErrorMessage = errorMessage,
+                ErrorMessage = userFriendlyMessage,
                 SessionId = request.SessionId,
                 ResponseTime = DateTime.UtcNow
             };
@@ -195,21 +212,31 @@ namespace AirportKiosk.Services
                 sourceLanguage = "en"; // Default to English for auto-detection
             }
 
-            // Normalize language codes
+            // Normalize language codes for MyMemory API
             var sourceLang = NormalizeLanguageCode(sourceLanguage);
             var targetLang = NormalizeLanguageCode(targetLanguage);
 
-            return $"{sourceLang}|{targetLang}";
+            var langPair = $"{sourceLang}|{targetLang}";
+
+            _logger.LogDebug("Language pair created: {LangPair} (source: {Source} → {SourceNorm}, target: {Target} → {TargetNorm})",
+                langPair, sourceLanguage, sourceLang, targetLanguage, targetLang);
+
+            return langPair;
         }
 
         private string NormalizeLanguageCode(string languageCode)
         {
-            return languageCode?.ToLower() switch
+            var normalized = languageCode?.ToLower() switch
             {
-                "en" or "english" => "en",
-                "ja" or "japanese" or "jp" => "ja",
+                "en" or "english" or "en-us" => "en",
+                "ja" or "japanese" or "jp" or "ja-jp" => "ja",
+                "it" or "italian" or "it-it" => "it",
+                "ko" or "korean" or "kr" or "ko-kr" => "ko",
                 _ => "en"
             };
+
+            _logger.LogDebug("Language code normalized: {Original} → {Normalized}", languageCode, normalized);
+            return normalized;
         }
 
         private string DetectLanguage(string text)
@@ -287,6 +314,8 @@ namespace AirportKiosk.Services
     internal class MyMemoryResponseData
     {
         public string TranslatedText { get; set; }
+
+        [JsonConverter(typeof(FlexibleStringConverter))]
         public string Match { get; set; }
     }
 
@@ -299,12 +328,53 @@ namespace AirportKiosk.Services
         public string Target { get; set; }
         public string Quality { get; set; }
         public string Reference { get; set; }
+
+        [JsonPropertyName("usage-count")]
         public string Usage_count { get; set; }
         public string Subject { get; set; }
+
+        [JsonPropertyName("created-by")]
         public string Created_by { get; set; }
+
+        [JsonPropertyName("last-updated-by")]
         public string Last_updated_by { get; set; }
+
+        [JsonPropertyName("create-date")]
         public string Create_date { get; set; }
+
+        [JsonPropertyName("last-update-date")]
         public string Last_update_date { get; set; }
+
+        [JsonConverter(typeof(FlexibleStringConverter))]
         public string Match { get; set; }
+        public string Penalty { get; set; }
+    }
+
+    // Custom JSON converter to handle both string and number values
+    internal class FlexibleStringConverter : JsonConverter<string>
+    {
+        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            switch (reader.TokenType)
+            {
+                case JsonTokenType.String:
+                    return reader.GetString();
+                case JsonTokenType.Number:
+                    return reader.GetDecimal().ToString();
+                case JsonTokenType.True:
+                    return "true";
+                case JsonTokenType.False:
+                    return "false";
+                case JsonTokenType.Null:
+                    return null;
+                default:
+                    return reader.GetString();
+            }
+        }
+
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+        {
+            writer.WriteStringValue(value);
+        }
     }
 }

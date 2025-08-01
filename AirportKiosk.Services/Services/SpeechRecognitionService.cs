@@ -159,10 +159,11 @@ namespace AirportKiosk.Services
 
                         _logger.LogInformation("Starting speech recognition for language: {Language}", language);
 
+                        // Use multiple recognition mode for continuous listening
                         _recognitionEngine.RecognizeAsync(RecognizeMode.Multiple);
                         _isListening = true;
 
-                        _logger.LogDebug("Speech recognition started successfully");
+                        _logger.LogDebug("Speech recognition started successfully in multiple mode");
                     }
                 });
             }
@@ -284,25 +285,46 @@ namespace AirportKiosk.Services
                 // Configure recognition settings
                 _recognitionEngine.SetInputToDefaultAudioDevice();
 
-                // Set timeouts (these properties might not exist in newer versions)
+                // Set recognition parameters for better detection
                 try
                 {
-                    // These properties may not be available in all versions of System.Speech
-                    var maxSpeechProperty = _recognitionEngine.GetType().GetProperty("MaxSpeechTimeout");
+                    // Try to set recognition parameters using reflection
+                    var engineType = _recognitionEngine.GetType();
+
+                    // Set timeouts
+                    var maxSpeechProperty = engineType.GetProperty("MaxSpeechTimeout");
                     if (maxSpeechProperty != null)
                     {
                         maxSpeechProperty.SetValue(_recognitionEngine, TimeSpan.FromMilliseconds(_maxSpeechTimeoutMs));
+                        _logger.LogDebug("Set MaxSpeechTimeout to {Timeout}ms", _maxSpeechTimeoutMs);
                     }
 
-                    var initialSilenceProperty = _recognitionEngine.GetType().GetProperty("InitialSilenceTimeout");
+                    var initialSilenceProperty = engineType.GetProperty("InitialSilenceTimeout");
                     if (initialSilenceProperty != null)
                     {
                         initialSilenceProperty.SetValue(_recognitionEngine, TimeSpan.FromMilliseconds(_initialSilenceTimeoutMs));
+                        _logger.LogDebug("Set InitialSilenceTimeout to {Timeout}ms", _initialSilenceTimeoutMs);
+                    }
+
+                    // Set end silence timeout for better detection
+                    var endSilenceProperty = engineType.GetProperty("EndSilenceTimeout");
+                    if (endSilenceProperty != null)
+                    {
+                        endSilenceProperty.SetValue(_recognitionEngine, TimeSpan.FromMilliseconds(500));
+                        _logger.LogDebug("Set EndSilenceTimeout to 500ms");
+                    }
+
+                    // Set babble timeout
+                    var babbleTimeoutProperty = engineType.GetProperty("BabbleTimeout");
+                    if (babbleTimeoutProperty != null)
+                    {
+                        babbleTimeoutProperty.SetValue(_recognitionEngine, TimeSpan.FromMilliseconds(2000));
+                        _logger.LogDebug("Set BabbleTimeout to 2000ms");
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Could not set speech recognition timeouts - using defaults");
+                    _logger.LogWarning(ex, "Could not set all speech recognition parameters - using defaults");
                 }
 
                 // Create grammar for better recognition
@@ -317,7 +339,7 @@ namespace AirportKiosk.Services
 
                 _currentLanguage = language;
 
-                _logger.LogDebug("Recognition engine configured for language: {Language}", language);
+                _logger.LogInformation("Recognition engine configured for language: {Language} with improved settings", language);
             }
             catch (Exception ex)
             {
@@ -423,6 +445,40 @@ namespace AirportKiosk.Services
                     "ありがとうございます",
                     "すみません",
                     "助けてください"
+                },
+                "it-IT" => new List<string>
+                {
+                    "Dov'è il gate",
+                    "Quanto costa questo",
+                    "Dov'è il bagno",
+                    "A che ora parte il mio volo",
+                    "C'è il WiFi gratuito",
+                    "Dove posso comprare del cibo",
+                    "Come arrivo al centro città",
+                    "Ho bisogno di aiuto con i bagagli",
+                    "Dov'è il check-in",
+                    "Dov'è la sicurezza",
+                    "Dov'è il ritiro bagagli",
+                    "Grazie",
+                    "Mi scusi",
+                    "Aiutami per favore"
+                },
+                "ko-KR" => new List<string>
+                {
+                    "게이트가 어디에 있나요",
+                    "이것은 얼마입니까",
+                    "화장실이 어디에 있나요",
+                    "제 비행기는 몇 시에 출발하나요",
+                    "무료 와이파이가 있나요",
+                    "음식을 어디서 살 수 있나요",
+                    "시내 중심가로 어떻게 가나요",
+                    "짐을 도와주세요",
+                    "체크인이 어디에 있나요",
+                    "보안검색대가 어디에 있나요",
+                    "수하물 찾는 곳이 어디에 있나요",
+                    "감사합니다",
+                    "실례합니다",
+                    "도와주세요"
                 },
                 _ => new List<string>()
             };
@@ -543,18 +599,27 @@ namespace AirportKiosk.Services
 
         private void OnRecognizeCompleted(object sender, System.Speech.Recognition.RecognizeCompletedEventArgs e)
         {
-            if (e.Error != null)
+            try
             {
-                _logger.LogError("Speech recognition completed with error: {Error}", e.Error.Message);
-                RecognitionError?.Invoke(this, e.Error.Message);
+                _isListening = false; // Mark as no longer listening
+
+                if (e.Error != null)
+                {
+                    _logger.LogError("Speech recognition completed with error: {Error}", e.Error.Message);
+                    RecognitionError?.Invoke(this, e.Error.Message);
+                }
+                else if (e.Cancelled)
+                {
+                    _logger.LogDebug("Speech recognition was cancelled");
+                }
+                else
+                {
+                    _logger.LogDebug("Speech recognition completed successfully - recognition stopped automatically");
+                }
             }
-            else if (e.Cancelled)
+            catch (Exception ex)
             {
-                _logger.LogDebug("Speech recognition was cancelled");
-            }
-            else
-            {
-                _logger.LogDebug("Speech recognition completed successfully");
+                _logger.LogError(ex, "Error in OnRecognizeCompleted");
             }
         }
 

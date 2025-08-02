@@ -6,6 +6,7 @@ using System.Speech.Recognition;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System.IO;
 
 namespace AirportKiosk.Services
 {
@@ -61,6 +62,7 @@ namespace AirportKiosk.Services
         private readonly int _maxSpeechTimeoutMs;
         private readonly int _initialSilenceTimeoutMs;
         private readonly bool _enableDebugging;
+        private readonly bool _useSharedRecognizer; // Added this missing field
 
         public event EventHandler<SpeechRecognizedEventArgs> SpeechRecognized;
         public event EventHandler<SpeechRecognitionRejectedEventArgs> SpeechRejected;
@@ -79,9 +81,10 @@ namespace AirportKiosk.Services
             _maxSpeechTimeoutMs = _configuration.GetValue<int>("SpeechRecognition:MaxSpeechTimeoutMs", 15000);
             _initialSilenceTimeoutMs = _configuration.GetValue<int>("SpeechRecognition:InitialSilenceTimeoutMs", 5000);
             _enableDebugging = _configuration.GetValue<bool>("SpeechRecognition:EnableDebugging", true);
+            _useSharedRecognizer = _configuration.GetValue<bool>("SpeechRecognition:UseSharedRecognizer", true); // Added this line
 
-            _logger.LogInformation("Speech Recognition initialized - Confidence threshold: {Threshold}, Debugging: {Debug}",
-                _confidenceThreshold, _enableDebugging);
+            _logger.LogInformation("Speech Recognition initialized - Confidence threshold: {Threshold}, Debugging: {Debug}, UseSharedRecognizer: {UseShared}",
+                _confidenceThreshold, _enableDebugging, _useSharedRecognizer);
         }
 
         public async Task<bool> InitializeAsync()
@@ -214,14 +217,167 @@ namespace AirportKiosk.Services
                     throw new ArgumentException("No audio data provided");
                 }
 
-                _logger.LogInformation("Recognizing speech from audio data, length: {Length} bytes", audioData.Length);
+                _logger.LogInformation("Recognizing speech from audio data, length: {Length} bytes, language: {Language}", 
+                    audioData.Length, language);
 
-                // This is a simplified implementation
-                // In a real scenario, you'd need to process the audio data with the recognition engine
-                // For now, we'll return a placeholder indicating we received audio
-                await Task.Delay(100); // Simulate processing time
+                return await Task.Run(() =>
+                {
+                    lock (_lockObject)
+                    {
+                        try
+                        {
+                            // Create a temporary recognition engine for this specific task
+                            SpeechRecognitionEngine tempEngine = null;
+                            
+                            try
+                            {
+                                // Create engine for the specified language
+                                var culture = new CultureInfo(language);
+                                
+                                if (_useSharedRecognizer)
+                                {
+                                    tempEngine = new SpeechRecognitionEngine();
+                                }
+                                else
+                                {
+                                    var recognizer = SpeechRecognitionEngine.InstalledRecognizers()
+                                        .FirstOrDefault(r => r.Culture.Equals(culture));
+                                    
+                                    tempEngine = recognizer != null 
+                                        ? new SpeechRecognitionEngine(recognizer)
+                                        : new SpeechRecognitionEngine();
+                                }
 
-                return "Speech recognition from audio data not yet implemented";
+                                // Create a memory stream from the audio data
+                                using (var audioStream = new System.IO.MemoryStream(audioData))
+                                {
+                                    // Set input to the audio stream
+                                    tempEngine.SetInputToWaveStream(audioStream);
+
+                                    // Load basic dictation grammar
+                                    var dictationGrammar = new DictationGrammar();
+                                    dictationGrammar.Name = "TempDictation";
+                                    dictationGrammar.Enabled = true;
+                                    tempEngine.LoadGrammar(dictationGrammar);
+
+                                    // Add airport phrases if enabled
+                                    var enableAirportPhrases = _configuration.GetValue<bool>("SpeechRecognition:EnableAirportPhrases", true);
+                                    if (enableAirportPhrases)
+                                    {
+                                        var airportPhrases = GetAirportPhrases(language);
+                                        if (airportPhrases.Any())
+                                        {
+                                            var choicesBuilder = new Choices(airportPhrases.ToArray());
+                                            var grammarBuilder = new GrammarBuilder(choicesBuilder);
+                                            var airportGrammar = new Grammar(grammarBuilder);
+                                            airportGrammar.Name = "TempAirportPhrases";
+                                            airportGrammar.Enabled = true;
+                                            tempEngine.LoadGrammar(airportGrammar);
+                                        }
+                                    }
+
+                                    // Use a TaskCompletionSource to handle the async recognition
+                                    var tcs = new TaskCompletionSource<string>();
+                                    var recognitionTimeout = TimeSpan.FromSeconds(30); // Timeout for recognition
+                                    
+                                    // Set up event handlers
+                                    void OnRecognized(object sender, System.Speech.Recognition.SpeechRecognizedEventArgs e)
+                                    {
+                                        if (e.Result.Confidence >= _confidenceThreshold)
+                                        {
+                                            _logger.LogDebug("Audio speech recognized: '{Text}' (Confidence: {Confidence:F3})",
+                                                e.Result.Text, e.Result.Confidence);
+                                            tcs.TrySetResult(e.Result.Text);
+                                        }
+                                        else
+                                        {
+                                            _logger.LogDebug("Audio speech confidence too low: {Confidence:F3} < {Threshold:F3} - Text: '{Text}'",
+                                                e.Result.Confidence, _confidenceThreshold, e.Result.Text);
+                                            tcs.TrySetResult($"[Low confidence] {e.Result.Text}");
+                                        }
+                                    }
+
+                                    void OnRejected(object sender, System.Speech.Recognition.SpeechRecognitionRejectedEventArgs e)
+                                    {
+                                        _logger.LogDebug("Audio speech recognition rejected");
+                                        tcs.TrySetResult(null); // No speech recognized
+                                    }
+
+                                    void OnCompleted(object sender, System.Speech.Recognition.RecognizeCompletedEventArgs e)
+                                    {
+                                        if (e.Error != null)
+                                        {
+                                            _logger.LogError("Audio speech recognition error: {Error}", e.Error.Message);
+                                            tcs.TrySetException(e.Error);
+                                        }
+                                        else if (e.Cancelled)
+                                        {
+                                            _logger.LogDebug("Audio speech recognition cancelled");
+                                            tcs.TrySetResult(null);
+                                        }
+                                        else if (!tcs.Task.IsCompleted)
+                                        {
+                                            // Recognition completed but no result was set
+                                            _logger.LogDebug("Audio speech recognition completed with no result");
+                                            tcs.TrySetResult(null);
+                                        }
+                                    }
+
+                                    // Subscribe to events
+                                    tempEngine.SpeechRecognized += OnRecognized;
+                                    tempEngine.SpeechRecognitionRejected += OnRejected;
+                                    tempEngine.RecognizeCompleted += OnCompleted;
+
+                                    try
+                                    {
+                                        // Start recognition (single mode for audio file)
+                                        _logger.LogDebug("Starting speech recognition on audio data");
+                                        tempEngine.RecognizeAsync(RecognizeMode.Single);
+
+                                        // Wait for result with timeout
+                                        if (tcs.Task.Wait(recognitionTimeout))
+                                        {
+                                            var result = tcs.Task.Result;
+                                            if (!string.IsNullOrEmpty(result))
+                                            {
+                                                _logger.LogInformation("Successfully recognized speech from audio: '{Text}'", result);
+                                                return result;
+                                            }
+                                            else
+                                            {
+                                                _logger.LogInformation("No speech recognized from audio data");
+                                                return null;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            _logger.LogWarning("Audio speech recognition timed out after {Timeout} seconds", recognitionTimeout.TotalSeconds);
+                                            tempEngine.RecognizeAsyncCancel();
+                                            return null;
+                                        }
+                                    }
+                                    finally
+                                    {
+                                        // Unsubscribe from events
+                                        tempEngine.SpeechRecognized -= OnRecognized;
+                                        tempEngine.SpeechRecognitionRejected -= OnRejected;
+                                        tempEngine.RecognizeCompleted -= OnCompleted;
+                                    }
+                                }
+                            }
+                            finally
+                            {
+                                // Clean up temporary engine
+                                tempEngine?.Dispose();
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error during audio speech recognition");
+                            throw;
+                        }
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -267,19 +423,30 @@ namespace AirportKiosk.Services
 
                 // Create recognition engine for specified language
                 var culture = new CultureInfo(language);
-                var recognizer = SpeechRecognitionEngine.InstalledRecognizers()
-                    .FirstOrDefault(r => r.Culture.Equals(culture));
 
-                if (recognizer == null)
+                if (_useSharedRecognizer)
                 {
-                    _logger.LogWarning("No recognizer found for language {Language}, using default", language);
+                    // Use shared recognizer (same as Windows Speech Recognition)
+                    _logger.LogInformation("Creating shared recognition engine for language: {Language}", language);
                     _recognitionEngine = new SpeechRecognitionEngine();
                 }
                 else
                 {
-                    _logger.LogInformation("Using recognizer: {Name} for language {Language}",
-                        recognizer.Name, language);
-                    _recognitionEngine = new SpeechRecognitionEngine(recognizer);
+                    // Use in-process recognizer for specific language
+                    var recognizer = SpeechRecognitionEngine.InstalledRecognizers()
+                        .FirstOrDefault(r => r.Culture.Equals(culture));
+
+                    if (recognizer == null)
+                    {
+                        _logger.LogWarning("No recognizer found for language {Language}, using shared recognizer", language);
+                        _recognitionEngine = new SpeechRecognitionEngine();
+                    }
+                    else
+                    {
+                        _logger.LogInformation("Using in-process recognizer: {Name} for language {Language}",
+                            recognizer.Name, language);
+                        _recognitionEngine = new SpeechRecognitionEngine(recognizer);
+                    }
                 }
 
                 // Configure recognition settings
@@ -288,10 +455,9 @@ namespace AirportKiosk.Services
                 // Set recognition parameters for better detection
                 try
                 {
-                    // Try to set recognition parameters using reflection
                     var engineType = _recognitionEngine.GetType();
 
-                    // Set timeouts
+                    // Set timeouts with more generous values
                     var maxSpeechProperty = engineType.GetProperty("MaxSpeechTimeout");
                     if (maxSpeechProperty != null)
                     {
@@ -306,21 +472,30 @@ namespace AirportKiosk.Services
                         _logger.LogDebug("Set InitialSilenceTimeout to {Timeout}ms", _initialSilenceTimeoutMs);
                     }
 
-                    // Set end silence timeout for better detection
+                    // Set shorter end silence for better responsiveness
                     var endSilenceProperty = engineType.GetProperty("EndSilenceTimeout");
                     if (endSilenceProperty != null)
                     {
-                        endSilenceProperty.SetValue(_recognitionEngine, TimeSpan.FromMilliseconds(500));
-                        _logger.LogDebug("Set EndSilenceTimeout to 500ms");
+                        endSilenceProperty.SetValue(_recognitionEngine, TimeSpan.FromMilliseconds(300));
+                        _logger.LogDebug("Set EndSilenceTimeout to 300ms");
                     }
 
                     // Set babble timeout
                     var babbleTimeoutProperty = engineType.GetProperty("BabbleTimeout");
                     if (babbleTimeoutProperty != null)
                     {
-                        babbleTimeoutProperty.SetValue(_recognitionEngine, TimeSpan.FromMilliseconds(2000));
-                        _logger.LogDebug("Set BabbleTimeout to 2000ms");
+                        babbleTimeoutProperty.SetValue(_recognitionEngine, TimeSpan.FromMilliseconds(1500));
+                        _logger.LogDebug("Set BabbleTimeout to 1500ms");
                     }
+
+                    // Set recognition confidence
+                    var endSilenceTimeoutAmbigiousProperty = engineType.GetProperty("EndSilenceTimeoutAmbiguous");
+                    if (endSilenceTimeoutAmbigiousProperty != null)
+                    {
+                        endSilenceTimeoutAmbigiousProperty.SetValue(_recognitionEngine, TimeSpan.FromMilliseconds(1000));
+                        _logger.LogDebug("Set EndSilenceTimeoutAmbiguous to 1000ms");
+                    }
+
                 }
                 catch (Exception ex)
                 {
@@ -328,7 +503,7 @@ namespace AirportKiosk.Services
                 }
 
                 // Create grammar for better recognition
-                CreateGrammar(language);
+                CreateImprovedGrammar(language);
 
                 // Set up event handlers
                 _recognitionEngine.SpeechRecognized += OnSpeechRecognized;
@@ -336,6 +511,7 @@ namespace AirportKiosk.Services
                 _recognitionEngine.AudioLevelUpdated += OnAudioLevelUpdated;
                 _recognitionEngine.SpeechDetected += OnSpeechDetected;
                 _recognitionEngine.RecognizeCompleted += OnRecognizeCompleted;
+                _recognitionEngine.SpeechHypothesized += OnSpeechHypothesized;
 
                 _currentLanguage = language;
 
@@ -348,18 +524,50 @@ namespace AirportKiosk.Services
             }
         }
 
-        private void CreateGrammar(string language)
+        private void CreateImprovedGrammar(string language)
         {
             try
             {
-                // Create a dictation grammar for natural speech
+                // Load dictation grammar with high weight (most important)
                 var dictationGrammar = new DictationGrammar();
                 dictationGrammar.Name = "Dictation";
                 dictationGrammar.Enabled = true;
-
+                dictationGrammar.Weight = 1.0f;
                 _recognitionEngine.LoadGrammar(dictationGrammar);
 
-                // Add common airport phrases for better recognition
+                // Create a simple word grammar with common words
+                var commonWords = new Choices(new string[]
+                {
+                    // Basic words
+                    "hello", "hi", "hey", "yes", "no", "ok", "okay", "thanks", "thank you",
+                    "help", "please", "excuse me", "sorry", "good", "bad", "fine",
+                    
+                    // Numbers
+                    "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+                    "first", "second", "third", "last",
+                    
+                    // Airport specific
+                    "gate", "flight", "plane", "airport", "ticket", "baggage", "luggage",
+                    "check in", "security", "passport", "boarding", "departure", "arrival",
+                    "terminal", "bathroom", "restroom", "food", "restaurant", "shop", "store",
+                    "taxi", "bus", "train", "metro", "subway", "city", "hotel",
+                    
+                    // Questions
+                    "where", "what", "when", "how", "why", "which", "who",
+                    "where is", "what time", "how much", "how many", "how do I",
+                    
+                    // Directions
+                    "left", "right", "straight", "up", "down", "here", "there", "near", "far"
+                });
+
+                var commonWordsBuilder = new GrammarBuilder(commonWords);
+                var commonWordsGrammar = new Grammar(commonWordsBuilder);
+                commonWordsGrammar.Name = "CommonWords";
+                commonWordsGrammar.Enabled = true;
+                commonWordsGrammar.Weight = 0.9f;
+                _recognitionEngine.LoadGrammar(commonWordsGrammar);
+
+                // Add airport phrases with high priority
                 var airportPhrases = GetAirportPhrases(language);
                 if (airportPhrases.Any())
                 {
@@ -368,30 +576,18 @@ namespace AirportKiosk.Services
                     var airportGrammar = new Grammar(grammarBuilder);
                     airportGrammar.Name = "AirportPhrases";
                     airportGrammar.Enabled = true;
-
+                    airportGrammar.Weight = 0.8f;
                     _recognitionEngine.LoadGrammar(airportGrammar);
 
                     _logger.LogDebug("Loaded {Count} airport phrases for language {Language}",
                         airportPhrases.Count, language);
                 }
 
-                // Add a simple test grammar for easier recognition
-                var testPhrases = new Choices(new string[]
-                {
-                    "hello", "test", "one", "two", "three", "help", "thank you",
-                    "where is", "how much", "excuse me", "gate", "bathroom"
-                });
-                var testGrammarBuilder = new GrammarBuilder(testPhrases);
-                var testGrammar = new Grammar(testGrammarBuilder);
-                testGrammar.Name = "TestPhrases";
-                testGrammar.Enabled = true;
-                _recognitionEngine.LoadGrammar(testGrammar);
-
-                _logger.LogInformation("Grammar loaded successfully - Dictation + Airport phrases + Test phrases");
+                _logger.LogInformation("Improved grammar loaded - Dictation + Common words + Airport phrases");
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to create custom grammar, using dictation only");
+                _logger.LogWarning(ex, "Failed to create improved grammar, using basic dictation only");
 
                 // Fallback - just use dictation
                 try
@@ -510,6 +706,15 @@ namespace AirportKiosk.Services
 
         #region Event Handlers
 
+        private void OnSpeechHypothesized(object sender, System.Speech.Recognition.SpeechHypothesizedEventArgs e)
+        {
+            if (_enableDebugging)
+            {
+                _logger.LogDebug("Speech hypothesis: '{Text}' (Confidence: {Confidence:F3})",
+                    e.Result.Text, e.Result.Confidence);
+            }
+        }
+
         private void OnSpeechRecognized(object sender, System.Speech.Recognition.SpeechRecognizedEventArgs e)
         {
             try
@@ -518,8 +723,22 @@ namespace AirportKiosk.Services
                 {
                     _logger.LogInformation("Speech recognized: '{Text}' (Confidence: {Confidence:F3}, Threshold: {Threshold:F3})",
                         e.Result.Text, e.Result.Confidence, _confidenceThreshold);
+
+                    // Log grammar used
+                    if (e.Result.Grammar != null)
+                    {
+                        _logger.LogDebug("Grammar used: {Grammar}", e.Result.Grammar.Name);
+                    }
+
+                    // Log alternates for debugging
+                    if (e.Result.Alternates.Count > 1)
+                    {
+                        var alternates = string.Join(", ", e.Result.Alternates.Take(3).Select(a => $"'{a.Text}' ({a.Confidence:F2})"));
+                        _logger.LogDebug("Alternates: {Alternates}", alternates);
+                    }
                 }
 
+                // Accept ANY recognition with confidence above threshold
                 if (e.Result.Confidence >= _confidenceThreshold)
                 {
                     var args = new SpeechRecognizedEventArgs
@@ -534,17 +753,17 @@ namespace AirportKiosk.Services
 
                     if (_enableDebugging)
                     {
-                        _logger.LogInformation("Speech accepted and forwarded to UI");
+                        _logger.LogInformation("Speech ACCEPTED and forwarded to UI");
                     }
                 }
                 else
                 {
-                    _logger.LogDebug("Speech recognition confidence too low: {Confidence:F3} < {Threshold:F3} - Text: '{Text}'",
+                    _logger.LogDebug("Speech confidence too low: {Confidence:F3} < {Threshold:F3} - Text: '{Text}'",
                         e.Result.Confidence, _confidenceThreshold, e.Result.Text);
 
                     var rejectedArgs = new SpeechRecognitionRejectedEventArgs
                     {
-                        Reason = $"Low confidence: {e.Result.Confidence:F2} (need {_confidenceThreshold:F2})"
+                        Reason = $"Low confidence: {e.Result.Confidence:F2} (need {_confidenceThreshold:F2}) - but heard: {e.Result.Text}"
                     };
 
                     SpeechRejected?.Invoke(this, rejectedArgs);

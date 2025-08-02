@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage x:Class="AirportKiosk.Maui.Pages.TranslationPage"
+             xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:AirportKiosk.Maui.ViewModels"
+             x:DataType="vm:TranslationViewModel"
+             Title="Translation Services"
+             BackgroundColor="#F0F8FF">
+
+    <ScrollView>
+        <Grid Padding="20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <StackLayout Grid.Row="0" Spacing="10" Margin="0,20,0,30">
+                <Label Text="🌐 Translation Services"
+                       FontSize="32"
+                       FontAttributes="Bold"
+                       TextColor="#2C3E50"
+                       HorizontalOptions="Center" />
+
+                <Label Text="Translate text to communicate better"
+                       FontSize="16"
+                       TextColor="#7F8C8D"
+                       HorizontalOptions="Center" />
+            </StackLayout>
+
+            <!-- Language Selection -->
+            <Grid Grid.Row="1" ColumnSpacing="10" Margin="0,0,0,20">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="60" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- From Language -->
+                <Frame Grid.Column="0" BackgroundColor="White" CornerRadius="10" Padding="15">
+                    <StackLayout>
+                        <Label Text="From Language"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               TextColor="#2C3E50" />
+                        <Picker ItemsSource="{Binding Languages}"
+                                SelectedItem="{Binding SelectedFromLanguage}"
+                                ItemDisplayBinding="{Binding Name}"
+                                FontSize="16"
+                                TextColor="#2C3E50" />
+                    </StackLayout>
+                </Frame>
+
+                <!-- Swap Button -->
+                <Button Grid.Column="1"
+                        Text="🔄"
+                        FontSize="24"
+                        BackgroundColor="#3498DB"
+                        TextColor="White"
+                        CornerRadius="25"
+                        WidthRequest="50"
+                        HeightRequest="50"
+                        VerticalOptions="Center"
+                        Command="{Binding SwapLanguagesCommand}" />
+
+                <!-- To Language -->
+                <Frame Grid.Column="2" BackgroundColor="White" CornerRadius="10" Padding="15">
+                    <StackLayout>
+                        <Label Text="To Language"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               TextColor="#2C3E50" />
+                        <Picker ItemsSource="{Binding Languages}"
+                                SelectedItem="{Binding SelectedToLanguage}"
+                                ItemDisplayBinding="{Binding Name}"
+                                FontSize="16"
+                                TextColor="#2C3E50" />
+                    </StackLayout>
+                </Frame>
+            </Grid>
+
+            <!-- Input Text -->
+            <Frame Grid.Row="2" BackgroundColor="White" CornerRadius="10" Padding="15" Margin="0,0,0,20">
+                <StackLayout>
+                    <Label Text="Enter text to translate"
+                           FontSize="14"
+                           FontAttributes="Bold"
+                           TextColor="#2C3E50" />
+                    <Editor Text="{Binding InputText}"
+                            Placeholder="Type your message here..."
+                            FontSize="16"
+                            HeightRequest="120"
+                            BackgroundColor="Transparent"
+                            TextColor="#2C3E50" />
+                </StackLayout>
+            </Frame>
+
+            <!-- Translation Result -->
+            <Frame Grid.Row="3" BackgroundColor="#ECF0F1" CornerRadius="10" Padding="15" Margin="0,0,0,20">
+                <StackLayout>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <Label Grid.Column="0"
+                               Text="Translation"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               TextColor="#2C3E50" />
+
+                        <Button Grid.Column="1"
+                                Text="📋"
+                                FontSize="16"
+                                BackgroundColor="Transparent"
+                                TextColor="#3498DB"
+                                Command="{Binding CopyTranslationCommand}"
+                                IsVisible="{Binding TranslatedText, Converter={StaticResource StringToBoolConverter}}" />
+                    </Grid>
+
+                    <Label Text="{Binding TranslatedText}"
+                           FontSize="18"
+                           TextColor="#2C3E50"
+                           MinimumHeightRequest="120"
+                           VerticalOptions="StartAndExpand">
+                        <Label.Triggers>
+                            <DataTrigger TargetType="Label" Binding="{Binding TranslatedText}" Value="">
+                                <Setter Property="Text" Value="Translation will appear here..." />
+                                <Setter Property="TextColor" Value="#95A5A6" />
+                                <Setter Property="FontAttributes" Value="Italic" />
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+                </StackLayout>
+            </Frame>
+
+            <!-- Action Buttons -->
+            <Grid Grid.Row="4" ColumnSpacing="15" Margin="0,0,0,20">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="0"
+                        Text="Translate"
+                        FontSize="18"
+                        FontAttributes="Bold"
+                        BackgroundColor="#2ECC71"
+                        TextColor="White"
+                        CornerRadius="10"
+                        HeightRequest="50"
+                        Command="{Binding TranslateTextCommand}"
+                        IsEnabled="{Binding IsTranslating, Converter={StaticResource InvertedBoolConverter}}" />
+
+                <Button Grid.Column="1"
+                        Text="Clear"
+                        FontSize="18"
+                        FontAttributes="Bold"
+                        BackgroundColor="#E74C3C"
+                        TextColor="White"
+                        CornerRadius="10"
+                        HeightRequest="50"
+                        Command="{Binding ClearTextCommand}" />
+
+                <Button Grid.Column="2"
+                        Text="Back"
+                        FontSize="18"
+                        FontAttributes="Bold"
+                        BackgroundColor="#95A5A6"
+                        TextColor="White"
+                        CornerRadius="10"
+                        HeightRequest="50"
+                        Command="{Binding GoBackCommand}" />
+            </Grid>
+
+            <!-- Status Message -->
+            <Frame Grid.Row="5" BackgroundColor="#3498DB" CornerRadius="10" Padding="15">
+                <StackLayout Orientation="Horizontal" HorizontalOptions="Center">
+                    <ActivityIndicator IsRunning="{Binding IsTranslating}"
+                                       Color="White"
+                                       IsVisible="{Binding IsTranslating}" />
+                    <Label Text="{Binding StatusMessage}"
+                           FontSize="16"
+                           TextColor="White"
+                           VerticalOptions="Center" />
+                </StackLayout>
+            </Frame>
+        </Grid>
+    </ScrollView>
+
+</ContentPage>

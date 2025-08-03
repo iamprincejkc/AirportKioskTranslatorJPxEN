@@ -34,5 +34,10 @@
 	</array>
 	<key>XSAppIconAssets</key>
 	<string>Assets.xcassets/appicon.appiconset</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs microphone access for speech recognition to translate spoken text.</string>
+
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>This app uses speech recognition to convert your spoken words into text for translation.</string>
 </dict>
 </plist>

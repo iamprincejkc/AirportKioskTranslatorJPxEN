@@ -1,130 +1,127 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage x:Class="AirportKiosk.Maui.Pages.MainKioskPage"
-             xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:vm="clr-namespace:AirportKiosk.Maui.ViewModels"
-             x:DataType="vm:MainKioskViewModel"
-             Title="Airport Kiosk"
-             BackgroundColor="#F0F8FF">
+             x:Class="AirportKiosk.Maui.Pages.MainKioskPage"
+             Title="Airport Kiosk">
 
     <ScrollView>
-        <Grid Padding="20">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+        <VerticalStackLayout Padding="30" Spacing="30">
 
             <!-- Header Section -->
-            <StackLayout Grid.Row="0" Spacing="10" Margin="0,20,0,30">
-                <Label Text="{Binding WelcomeMessage}"
-                       FontSize="36"
+            <StackLayout HorizontalOptions="Center" Spacing="10">
+                <Label Text="{Binding CurrentTime}" 
+                       FontSize="48" 
                        FontAttributes="Bold"
-                       TextColor="#2C3E50"
                        HorizontalOptions="Center" />
 
-                <Label Text="{Binding CurrentTime}"
-                       FontSize="48"
-                       FontAttributes="Bold"
-                       TextColor="#3498DB"
-                       HorizontalOptions="Center" />
-
-                <Label Text="{Binding CurrentDate}"
+                <Label Text="{Binding CurrentDate}" 
                        FontSize="18"
-                       TextColor="#7F8C8D"
                        HorizontalOptions="Center" />
+
+                <Label Text="{Binding WelcomeMessage}" 
+                       Style="{StaticResource Headline}"
+                       HorizontalOptions="Center"
+                       Margin="0,20,0,0" />
             </StackLayout>
 
-            <!-- Airport Image/Logo Placeholder -->
-            <Frame Grid.Row="1" 
-                   BackgroundColor="#ECF0F1"
-                   BorderColor="#BDC3C7"
-                   CornerRadius="10"
-                   Padding="20"
-                   Margin="0,0,0,30">
-                <Label Text="✈️ Airport Information Center"
-                       FontSize="24"
-                       TextColor="#2C3E50"
-                       HorizontalOptions="Center" />
-            </Frame>
-
-            <!-- Main Menu Grid -->
-            <Grid Grid.Row="2" RowSpacing="15" ColumnSpacing="15">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+            <!-- Service Buttons Grid -->
+            <Grid RowDefinitions="Auto,Auto" 
+                  ColumnDefinitions="*,*" 
+                  RowSpacing="20" 
+                  ColumnSpacing="20">
 
                 <!-- Translation Service -->
-                <Button Grid.Row="0" Grid.Column="0"
-                        Text="🌐&#x0a;Translation&#x0a;Services"
-                        FontSize="18"
-                        FontAttributes="Bold"
-                        BackgroundColor="#3498DB"
-                        TextColor="White"
-                        CornerRadius="15"
-                        HeightRequest="120"
-                        Command="{Binding NavigateToTranslationCommand}" />
+                <Frame Grid.Row="0" Grid.Column="0" 
+                       BackgroundColor="LightBlue" 
+                       HasShadow="True"
+                       CornerRadius="15">
+                    <StackLayout>
+                        <Label Text="🗣️" FontSize="48" HorizontalOptions="Center" />
+                        <Button Text="Translation Service"
+                                Command="{Binding NavigateToTranslationCommand}"
+                                BackgroundColor="DodgerBlue"
+                                TextColor="White"
+                                FontAttributes="Bold"
+                                HeightRequest="60" />
+                        <Label Text="Speak or type to translate between languages"
+                               FontSize="12"
+                               HorizontalOptions="Center"
+                               Margin="0,5,0,0" />
+                    </StackLayout>
+                </Frame>
 
                 <!-- Flight Information -->
-                <Button Grid.Row="0" Grid.Column="1"
-                        Text="✈️&#x0a;Flight&#x0a;Information"
-                        FontSize="18"
-                        FontAttributes="Bold"
-                        BackgroundColor="#E74C3C"
-                        TextColor="White"
-                        CornerRadius="15"
-                        HeightRequest="120"
-                        Command="{Binding ShowFlightInfoCommand}" />
+                <Frame Grid.Row="0" Grid.Column="1" 
+                       BackgroundColor="LightGreen" 
+                       HasShadow="True"
+                       CornerRadius="15">
+                    <StackLayout>
+                        <Label Text="✈️" FontSize="48" HorizontalOptions="Center" />
+                        <Button Text="Flight Information"
+                                Command="{Binding ShowFlightInfoCommand}"
+                                BackgroundColor="Green"
+                                TextColor="White"
+                                FontAttributes="Bold"
+                                HeightRequest="60" />
+                        <Label Text="Check departures, arrivals, and gate information"
+                               FontSize="12"
+                               HorizontalOptions="Center"
+                               Margin="0,5,0,0" />
+                    </StackLayout>
+                </Frame>
 
-                <!-- Airport Map -->
-                <Button Grid.Row="1" Grid.Column="0"
-                        Text="🗺️&#x0a;Airport&#x0a;Directions"
-                        FontSize="18"
-                        FontAttributes="Bold"
-                        BackgroundColor="#2ECC71"
-                        TextColor="White"
-                        CornerRadius="15"
-                        HeightRequest="120"
-                        Command="{Binding ShowDirectionsCommand}" />
+                <!-- Airport Directions -->
+                <Frame Grid.Row="1" Grid.Column="0" 
+                       BackgroundColor="LightCoral" 
+                       HasShadow="True"
+                       CornerRadius="15">
+                    <StackLayout>
+                        <Label Text="🗺️" FontSize="48" HorizontalOptions="Center" />
+                        <Button Text="Directions"
+                                Command="{Binding ShowDirectionsCommand}"
+                                BackgroundColor="Crimson"
+                                TextColor="White"
+                                FontAttributes="Bold"
+                                HeightRequest="60" />
+                        <Label Text="Find gates, restrooms, shops, and restaurants"
+                               FontSize="12"
+                               HorizontalOptions="Center"
+                               Margin="0,5,0,0" />
+                    </StackLayout>
+                </Frame>
 
-                <!-- Services -->
-                <Button Grid.Row="1" Grid.Column="1"
-                        Text="🏪&#x0a;Airport&#x0a;Services"
-                        FontSize="18"
-                        FontAttributes="Bold"
-                        BackgroundColor="#F39C12"
-                        TextColor="White"
-                        CornerRadius="15"
-                        HeightRequest="120"
-                        Command="{Binding ShowServicesCommand}" />
-
-                <!-- Emergency/Assistance -->
-                <Button Grid.Row="2" Grid.ColumnSpan="2"
-                        Text="🆘 Call for Assistance"
-                        FontSize="20"
-                        FontAttributes="Bold"
-                        BackgroundColor="#E67E22"
-                        TextColor="White"
-                        CornerRadius="15"
-                        HeightRequest="80"
-                        Command="{Binding CallAssistanceCommand}" />
+                <!-- Airport Services -->
+                <Frame Grid.Row="1" Grid.Column="1" 
+                       BackgroundColor="LightGoldenrodYellow" 
+                       HasShadow="True"
+                       CornerRadius="15">
+                    <StackLayout>
+                        <Label Text="🛎️" FontSize="48" HorizontalOptions="Center" />
+                        <Button Text="Services"
+                                Command="{Binding ShowServicesCommand}"
+                                BackgroundColor="Orange"
+                                TextColor="White"
+                                FontAttributes="Bold"
+                                HeightRequest="60" />
+                        <Label Text="WiFi, charging stations, and amenities"
+                               FontSize="12"
+                               HorizontalOptions="Center"
+                               Margin="0,5,0,0" />
+                    </StackLayout>
+                </Frame>
             </Grid>
 
-            <!-- Footer -->
-            <StackLayout Grid.Row="3" Margin="0,30,0,20">
-                <Label Text="Need help? Touch any button or ask airport staff"
-                       FontSize="14"
-                       TextColor="#95A5A6"
-                       HorizontalOptions="Center" />
-            </StackLayout>
-        </Grid>
+            <!-- Assistance Button -->
+            <Button Text="🆘 Call for Assistance"
+                    Command="{Binding CallAssistanceCommand}"
+                    BackgroundColor="Red"
+                    TextColor="White"
+                    FontAttributes="Bold"
+                    FontSize="18"
+                    HeightRequest="70"
+                    Margin="0,20,0,0" />
+
+        </VerticalStackLayout>
     </ScrollView>
 
 </ContentPage>

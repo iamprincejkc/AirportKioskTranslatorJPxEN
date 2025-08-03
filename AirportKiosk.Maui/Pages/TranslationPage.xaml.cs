@@ -9,4 +9,14 @@ public partial class TranslationPage : ContentPage
         InitializeComponent();
         BindingContext = viewModel;
     }
+
+    protected override void OnDisappearing()
+    {
+        // Ensure we stop listening when navigating away
+        if (BindingContext is TranslationViewModel vm && vm.IsListening)
+        {
+            vm.StopListeningCommand.Execute(null);
+        }
+        base.OnDisappearing();
+    }
 }

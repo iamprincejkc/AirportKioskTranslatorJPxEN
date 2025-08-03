@@ -9,16 +9,20 @@ namespace AirportKiosk.Maui.ViewModels;
 public class TranslationViewModel : INotifyPropertyChanged
 {
     private readonly ITranslationService _translationService;
+    private readonly ISpeechService _speechService;
     private string _inputText = string.Empty;
     private string _translatedText = string.Empty;
     private LanguageInfo? _selectedFromLanguage;
     private LanguageInfo? _selectedToLanguage;
     private bool _isTranslating = false;
+    private bool _isListening = false;
     private string _statusMessage = "Ready to translate";
+    private CancellationTokenSource? _listeningCancellationSource;
 
-    public TranslationViewModel(ITranslationService translationService)
+    public TranslationViewModel(ITranslationService translationService, ISpeechService speechService)
     {
         _translationService = translationService;
+        _speechService = speechService;
 
         // Initialize commands
         TranslateTextCommand = new Command(async () => await TranslateText());
@@ -26,6 +30,8 @@ public class TranslationViewModel : INotifyPropertyChanged
         SwapLanguagesCommand = new Command(SwapLanguages);
         CopyTranslationCommand = new Command(async () => await CopyTranslation());
         GoBackCommand = new Command(async () => await GoBack());
+        StartListeningCommand = new Command(async () => await StartListening(), () => !IsListening && IsSpeechSupported);
+        StopListeningCommand = new Command(async () => await StopListening(), () => IsListening);
 
         Languages = new ObservableCollection<LanguageInfo>();
         LoadLanguages();
@@ -58,6 +64,7 @@ public class TranslationViewModel : INotifyPropertyChanged
         {
             _selectedFromLanguage = value;
             OnPropertyChanged();
+            ((Command)StartListeningCommand).ChangeCanExecute();
         }
     }
 
@@ -81,6 +88,18 @@ public class TranslationViewModel : INotifyPropertyChanged
         }
     }
 
+    public bool IsListening
+    {
+        get => _isListening;
+        set
+        {
+            _isListening = value;
+            OnPropertyChanged();
+            ((Command)StartListeningCommand).ChangeCanExecute();
+            ((Command)StopListeningCommand).ChangeCanExecute();
+        }
+    }
+
     public string StatusMessage
     {
         get => _statusMessage;
@@ -91,6 +110,8 @@ public class TranslationViewModel : INotifyPropertyChanged
         }
     }
 
+    public bool IsSpeechSupported => _speechService.IsSupported;
+
     public ObservableCollection<LanguageInfo> Languages { get; }
 
     public ICommand TranslateTextCommand { get; }
@@ -98,6 +119,8 @@ public class TranslationViewModel : INotifyPropertyChanged
     public ICommand SwapLanguagesCommand { get; }
     public ICommand CopyTranslationCommand { get; }
     public ICommand GoBackCommand { get; }
+    public ICommand StartListeningCommand { get; }
+    public ICommand StopListeningCommand { get; }
 
     private async void LoadLanguages()
     {
@@ -116,6 +139,74 @@ public class TranslationViewModel : INotifyPropertyChanged
         catch (Exception ex)
         {
             StatusMessage = $"Error loading languages: {ex.Message}";
+        }
+    }
+
+    private async Task StartListening()
+    {
+        if (SelectedFromLanguage == null)
+        {
+            StatusMessage = "Please select a source language first";
+            return;
+        }
+
+        try
+        {
+            _listeningCancellationSource = new CancellationTokenSource();
+            IsListening = true;
+            StatusMessage = "Listening... Speak now";
+
+            var result = await _speechService.ListenAsync(
+                SelectedFromLanguage.Code,
+                _listeningCancellationSource.Token);
+
+            if (result.IsSuccessful && !string.IsNullOrWhiteSpace(result.Text))
+            {
+                InputText = result.Text;
+                StatusMessage = "Speech recognized. Ready to translate.";
+
+                // Auto-translate if we have both languages selected
+                if (SelectedToLanguage != null)
+                {
+                    await TranslateText();
+                }
+            }
+            else
+            {
+                StatusMessage = result.ErrorMessage ?? "No speech recognized. Try again.";
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Speech recognition cancelled";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Speech recognition error: {ex.Message}";
+        }
+        finally
+        {
+            IsListening = false;
+            _listeningCancellationSource?.Dispose();
+            _listeningCancellationSource = null;
+        }
+    }
+
+    private async Task StopListening()
+    {
+        try
+        {
+            _listeningCancellationSource?.Cancel();
+            await _speechService.StopListeningAsync();
+            StatusMessage = "Speech recognition stopped";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error stopping speech recognition: {ex.Message}";
+        }
+        finally
+        {
+            IsListening = false;
         }
     }
 
@@ -196,6 +287,12 @@ public class TranslationViewModel : INotifyPropertyChanged
 
     private async Task GoBack()
     {
+        // Stop listening if active
+        if (IsListening)
+        {
+            await StopListening();
+        }
+
         await Shell.Current.GoToAsync("..");
     }
 

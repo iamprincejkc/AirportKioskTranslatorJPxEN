@@ -41,6 +41,10 @@
 
   <Capabilities>
     <rescap:Capability Name="runFullTrust" />
+	  <!-- Required for microphone access -->
+	  <uap:Capability Name="microphone" />
+	  <!-- Required for internet access (translation API) -->
+	  <uap:Capability Name="internetClient" />
   </Capabilities>
 
 </Package>

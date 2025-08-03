@@ -5,7 +5,7 @@
              xmlns:vm="clr-namespace:AirportKiosk.Maui.ViewModels"
              x:DataType="vm:TranslationViewModel"
              Title="Translation Services"
-             BackgroundColor="#F0F8FF">
+             BackgroundColor="{AppThemeBinding Light=#F0F8FF, Dark=#1C1C1E}">
 
     <ScrollView>
         <Grid Padding="20">
@@ -23,12 +23,12 @@
                 <Label Text="🌐 Translation Services"
                        FontSize="32"
                        FontAttributes="Bold"
-                       TextColor="#2C3E50"
+                       TextColor="{AppThemeBinding Light=#2C3E50, Dark=#FFFFFF}"
                        HorizontalOptions="Center" />
 
-                <Label Text="Translate text to communicate better"
+                <Label Text="Translate text or speak to communicate better"
                        FontSize="16"
-                       TextColor="#7F8C8D"
+                       TextColor="{AppThemeBinding Light=#7F8C8D, Dark=#8E8E93}"
                        HorizontalOptions="Center" />
             </StackLayout>
 
@@ -41,17 +41,21 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- From Language -->
-                <Frame Grid.Column="0" BackgroundColor="White" CornerRadius="10" Padding="15">
+                <Frame Grid.Column="0" 
+                       BackgroundColor="{AppThemeBinding Light=White, Dark=#2C2C2E}" 
+                       CornerRadius="10" 
+                       Padding="15"
+                       HasShadow="{AppThemeBinding Light=True, Dark=False}">
                     <StackLayout>
                         <Label Text="From Language"
                                FontSize="14"
                                FontAttributes="Bold"
-                               TextColor="#2C3E50" />
+                               TextColor="{AppThemeBinding Light=#2C3E50, Dark=#FFFFFF}" />
                         <Picker ItemsSource="{Binding Languages}"
                                 SelectedItem="{Binding SelectedFromLanguage}"
                                 ItemDisplayBinding="{Binding Name}"
                                 FontSize="16"
-                                TextColor="#2C3E50" />
+                                TextColor="{AppThemeBinding Light=#2C3E50, Dark=#FFFFFF}" />
                     </StackLayout>
                 </Frame>
 
@@ -68,39 +72,125 @@
                         Command="{Binding SwapLanguagesCommand}" />
 
                 <!-- To Language -->
-                <Frame Grid.Column="2" BackgroundColor="White" CornerRadius="10" Padding="15">
+                <Frame Grid.Column="2" 
+                       BackgroundColor="{AppThemeBinding Light=White, Dark=#2C2C2E}" 
+                       CornerRadius="10" 
+                       Padding="15"
+                       HasShadow="{AppThemeBinding Light=True, Dark=False}">
                     <StackLayout>
                         <Label Text="To Language"
                                FontSize="14"
                                FontAttributes="Bold"
-                               TextColor="#2C3E50" />
+                               TextColor="{AppThemeBinding Light=#2C3E50, Dark=#FFFFFF}" />
                         <Picker ItemsSource="{Binding Languages}"
                                 SelectedItem="{Binding SelectedToLanguage}"
                                 ItemDisplayBinding="{Binding Name}"
                                 FontSize="16"
-                                TextColor="#2C3E50" />
+                                TextColor="{AppThemeBinding Light=#2C3E50, Dark=#FFFFFF}" />
                     </StackLayout>
                 </Frame>
             </Grid>
 
-            <!-- Input Text -->
-            <Frame Grid.Row="2" BackgroundColor="White" CornerRadius="10" Padding="15" Margin="0,0,0,20">
+            <!-- Input Text with Speech Controls -->
+            <Frame Grid.Row="2" 
+                   BackgroundColor="{AppThemeBinding Light=White, Dark=#2C2C2E}" 
+                   CornerRadius="10" 
+                   Padding="15" 
+                   Margin="0,0,0,20"
+                   HasShadow="{AppThemeBinding Light=True, Dark=False}">
                 <StackLayout>
-                    <Label Text="Enter text to translate"
-                           FontSize="14"
-                           FontAttributes="Bold"
-                           TextColor="#2C3E50" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <Label Grid.Column="0"
+                               Text="Enter text to translate"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light=#2C3E50, Dark=#FFFFFF}" />
+
+                        <!-- Speech Recognition Status -->
+                        <Label Grid.Column="1"
+                               Text="🎤 Listening..."
+                               FontSize="12"
+                               TextColor="#E74C3C"
+                               FontAttributes="Bold"
+                               IsVisible="{Binding IsListening}" />
+                    </Grid>
+
                     <Editor Text="{Binding InputText}"
-                            Placeholder="Type your message here..."
+                            Placeholder="Type your message here or use voice input..."
                             FontSize="16"
                             HeightRequest="120"
                             BackgroundColor="Transparent"
-                            TextColor="#2C3E50" />
+                            TextColor="{AppThemeBinding Light=#2C3E50, Dark=#FFFFFF}"
+                            PlaceholderColor="{AppThemeBinding Light=#95A5A6, Dark=#8E8E93}"
+                            IsEnabled="{Binding IsListening, Converter={StaticResource InvertedBoolConverter}}" />
+
+                    <!-- Speech Control Buttons -->
+                    <Grid ColumnSpacing="10" Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Start Listening Button -->
+                        <Button Grid.Column="0"
+                                Text="🎤 Start Voice"
+                                FontSize="14"
+                                FontAttributes="Bold"
+                                BackgroundColor="#2ECC71"
+                                TextColor="White"
+                                CornerRadius="8"
+                                HeightRequest="40"
+                                Command="{Binding StartListeningCommand}"
+                                IsVisible="{Binding IsSpeechSupported}" />
+
+                        <!-- Stop Listening Button -->
+                        <Button Grid.Column="1"
+                                Text="⏹️ Stop Voice"
+                                FontSize="14"
+                                FontAttributes="Bold"
+                                BackgroundColor="#E74C3C"
+                                TextColor="White"
+                                CornerRadius="8"
+                                HeightRequest="40"
+                                Command="{Binding StopListeningCommand}"
+                                IsVisible="{Binding IsListening}" />
+
+                        <!-- Clear Button -->
+                        <Button Grid.Column="2"
+                                Text="🗑️"
+                                FontSize="16"
+                                BackgroundColor="#95A5A6"
+                                TextColor="White"
+                                CornerRadius="8"
+                                WidthRequest="40"
+                                HeightRequest="40"
+                                Command="{Binding ClearTextCommand}" />
+                    </Grid>
+
+                    <!-- Speech Not Supported Message -->
+                    <Label Text="Speech recognition is not available on this device"
+                           FontSize="12"
+                           TextColor="#E67E22"
+                           FontAttributes="Italic"
+                           HorizontalOptions="Center"
+                           Margin="0,5,0,0"
+                           IsVisible="{Binding IsSpeechSupported, Converter={StaticResource InvertedBoolConverter}}" />
                 </StackLayout>
             </Frame>
 
             <!-- Translation Result -->
-            <Frame Grid.Row="3" BackgroundColor="#ECF0F1" CornerRadius="10" Padding="15" Margin="0,0,0,20">
+            <Frame Grid.Row="3" 
+                   BackgroundColor="{AppThemeBinding Light=#ECF0F1, Dark=#3A3A3C}" 
+                   CornerRadius="10" 
+                   Padding="15" 
+                   Margin="0,0,0,20"
+                   HasShadow="{AppThemeBinding Light=True, Dark=False}">
                 <StackLayout>
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -112,7 +202,7 @@
                                Text="Translation"
                                FontSize="14"
                                FontAttributes="Bold"
-                               TextColor="#2C3E50" />
+                               TextColor="{AppThemeBinding Light=#2C3E50, Dark=#FFFFFF}" />
 
                         <Button Grid.Column="1"
                                 Text="📋"
@@ -125,13 +215,13 @@
 
                     <Label Text="{Binding TranslatedText}"
                            FontSize="18"
-                           TextColor="#2C3E50"
+                           TextColor="{AppThemeBinding Light=#2C3E50, Dark=#FFFFFF}"
                            MinimumHeightRequest="120"
                            VerticalOptions="StartAndExpand">
                         <Label.Triggers>
                             <DataTrigger TargetType="Label" Binding="{Binding TranslatedText}" Value="">
                                 <Setter Property="Text" Value="Translation will appear here..." />
-                                <Setter Property="TextColor" Value="#95A5A6" />
+                                <Setter Property="TextColor" Value="{AppThemeBinding Light=#95A5A6, Dark=#8E8E93}" />
                                 <Setter Property="FontAttributes" Value="Italic" />
                             </DataTrigger>
                         </Label.Triggers>
@@ -159,7 +249,7 @@
                         IsEnabled="{Binding IsTranslating, Converter={StaticResource InvertedBoolConverter}}" />
 
                 <Button Grid.Column="1"
-                        Text="Clear"
+                        Text="Clear All"
                         FontSize="18"
                         FontAttributes="Bold"
                         BackgroundColor="#E74C3C"
@@ -180,11 +270,28 @@
             </Grid>
 
             <!-- Status Message -->
-            <Frame Grid.Row="5" BackgroundColor="#3498DB" CornerRadius="10" Padding="15">
+            <Frame Grid.Row="5" CornerRadius="10" Padding="15">
+                <Frame.Triggers>
+                    <DataTrigger TargetType="Frame" Binding="{Binding IsListening}" Value="True">
+                        <Setter Property="BackgroundColor" Value="#E74C3C" />
+                    </DataTrigger>
+                    <DataTrigger TargetType="Frame" Binding="{Binding IsListening}" Value="False">
+                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#3498DB, Dark=#007AFF}" />
+                    </DataTrigger>
+                </Frame.Triggers>
+
                 <StackLayout Orientation="Horizontal" HorizontalOptions="Center">
                     <ActivityIndicator IsRunning="{Binding IsTranslating}"
                                        Color="White"
                                        IsVisible="{Binding IsTranslating}" />
+
+                    <!-- Listening Indicator -->
+                    <Label Text="🎤"
+                           FontSize="16"
+                           TextColor="White"
+                           VerticalOptions="Center"
+                           IsVisible="{Binding IsListening}" />
+
                     <Label Text="{Binding StatusMessage}"
                            FontSize="16"
                            TextColor="White"

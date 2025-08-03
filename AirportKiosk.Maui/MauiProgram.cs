@@ -27,6 +27,7 @@ public static class MauiProgram
 
         // Register services
         builder.Services.AddSingleton<ITranslationService, TranslationService>();
+        builder.Services.AddSingleton<ISpeechService, SpeechService>();
 
         // Register ViewModels
         builder.Services.AddTransient<MainKioskViewModel>();

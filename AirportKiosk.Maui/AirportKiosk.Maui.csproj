@@ -30,6 +30,7 @@
 	
 	<PropertyGroup>
 		<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net9.0-windows10.0.26100.0</TargetFrameworks>
+		<UserSecretsId>ef831115-3165-47a0-97e4-abca94898ac3</UserSecretsId>
 	</PropertyGroup>
 	
 	<ItemGroup>
@@ -58,6 +59,10 @@
 		
 		<!-- Required for permissions -->
 		<PackageReference Include="Microsoft.Maui.Essentials" Version="9.0.90" />
+		
+		<!-- Configuration support -->
+		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.7" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="9.0.7" />
 	</ItemGroup>
 	
 	<!-- Platform-specific packages for speech recognition -->
@@ -78,6 +83,12 @@
 	
 	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
 		<!-- Windows speech recognition is built into WinUI -->
+	</ItemGroup>
+	
+	<ItemGroup>
+	  <MauiXaml Update="Pages\BostonFlightBoardPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
 	</ItemGroup>
 
 </Project>

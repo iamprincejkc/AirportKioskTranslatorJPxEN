@@ -79,10 +79,7 @@ public class MainKioskViewModel : INotifyPropertyChanged
 
     private async Task ShowFlightInfo()
     {
-        await Application.Current.MainPage.DisplayAlert(
-            "Flight Information",
-            "Flight information feature coming soon!",
-            "OK");
+        await Shell.Current.GoToAsync(nameof(BostonFlightBoardPage));
     }
 
     private async Task ShowDirections()

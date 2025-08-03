@@ -10,5 +10,6 @@ public partial class AppShell : Shell
 
         // Register routes for navigation
         Routing.RegisterRoute(nameof(TranslationPage), typeof(TranslationPage));
+        Routing.RegisterRoute(nameof(BostonFlightBoardPage), typeof(BostonFlightBoardPage));
     }
 }

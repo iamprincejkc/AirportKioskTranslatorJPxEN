@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage x:Class="AirportKiosk.Maui.Pages.BostonFlightBoardPage"
+             xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             Title="Flight Information"
+             BackgroundColor="{AppThemeBinding Light=#F5F7FA, Dark=#1C1C1E}">
+
+    <RefreshView IsRefreshing="{Binding IsLoading}"
+                 Command="{Binding RefreshCommand}"
+                 RefreshColor="{AppThemeBinding Light=#6366F1, Dark=#4F46E5}">
+        <ScrollView>
+            <Grid Padding="20" RowSpacing="20">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Header with Gradient Background -->
+                <Frame Grid.Row="0" 
+                       BackgroundColor="{AppThemeBinding Light=#6366F1, Dark=#4F46E5}"
+                       CornerRadius="20"
+                       Padding="25"
+                       HasShadow="{AppThemeBinding Light=True, Dark=False}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <!-- Title -->
+                        <Label Grid.Row="0"
+                               Text="{Binding AirportName}"
+                               FontSize="24"
+                               FontAttributes="Bold"
+                               TextColor="White"
+                               HorizontalOptions="Center" />
+
+                        <!-- Subtitle -->
+                        <StackLayout Grid.Row="1" Orientation="Horizontal" Spacing="10" Margin="0,5,0,0" HorizontalOptions="Center">
+                            <Label Text="{Binding CurrentDate}"
+                                   FontSize="14"
+                                   TextColor="White"
+                                   Opacity="0.9" />
+                            <Label Text="•"
+                                   FontSize="14"
+                                   TextColor="White"
+                                   Opacity="0.6" />
+                            <Label Text="{Binding FlightCount}"
+                                   FontSize="14"
+                                   TextColor="White"
+                                   Opacity="0.9" />
+                        </StackLayout>
+
+                        <!-- Flight Type Tag -->
+                        <Frame Grid.Row="2"
+                               BackgroundColor="White"
+                               CornerRadius="15"
+                               Padding="15,8"
+                               Margin="0,15,0,0"
+                               HorizontalOptions="Center">
+                            <Label Text="✈️ Departures"
+                                   FontSize="16"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light=#6366F1, Dark=#4F46E5}"
+                                   HorizontalOptions="Center" />
+                        </Frame>
+                    </Grid>
+                </Frame>
+
+                <!-- Service Unavailable Warning -->
+                <Frame Grid.Row="1" 
+                   BackgroundColor="#FF6B6B"
+                   CornerRadius="15"
+                   Padding="20"
+                   IsVisible="{Binding IsServiceAvailable, Converter={StaticResource InvertedBoolConverter}}"
+                   HasShadow="{AppThemeBinding Light=True, Dark=False}">
+                    <StackLayout Orientation="Horizontal" HorizontalOptions="Center" Spacing="10">
+                        <Label Text="⚠️"
+                           FontSize="20"
+                           VerticalOptions="Center" />
+                        <Label Text="Flight service unavailable. Please check API configuration."
+                           FontSize="14"
+                           TextColor="White"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center" />
+                    </StackLayout>
+                </Frame>
+
+                <!-- Loading Indicator -->
+                <Frame Grid.Row="2"
+                   BackgroundColor="{AppThemeBinding Light=White, Dark=#2C2C2E}"
+                   CornerRadius="15"
+                   Padding="20"
+                   IsVisible="{Binding IsLoading}"
+                   HasShadow="{AppThemeBinding Light=True, Dark=False}">
+                    <StackLayout Orientation="Horizontal" HorizontalOptions="Center" Spacing="15">
+                        <ActivityIndicator IsRunning="{Binding IsLoading}"
+                                       Color="{AppThemeBinding Light=#6366F1, Dark=#4F46E5}"
+                                       WidthRequest="30"
+                                       HeightRequest="30" />
+                        <Label Text="{Binding StatusMessage}"
+                           FontSize="16"
+                           TextColor="{AppThemeBinding Light=#374151, Dark=#FFFFFF}"
+                           VerticalOptions="Center" />
+                    </StackLayout>
+                </Frame>
+
+                <!-- Flight List -->
+                <CollectionView Grid.Row="3" 
+                            ItemsSource="{Binding Departures}">
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="15" />
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Padding="0,7.5">
+                                <Frame BackgroundColor="{AppThemeBinding Light=White, Dark=#2C2C2E}"
+                                   CornerRadius="16"
+                                   Padding="20"
+                                   HasShadow="{AppThemeBinding Light=True, Dark=False}">
+
+                                    <!-- Main Flight Info -->
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <!-- Top Row: Time and Route -->
+                                        <Grid Grid.Row="0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Departure Time -->
+                                            <StackLayout Grid.Column="0" VerticalOptions="Center">
+                                                <Label Text="BOS"
+                                                   FontSize="14"
+                                                   FontAttributes="Bold"
+                                                   TextColor="{AppThemeBinding Light=#6B7280, Dark=#9CA3AF}" />
+                                                <Label Text="{Binding DepartureTime, StringFormat='{0:HH:mm}'}"
+                                                   FontSize="24"
+                                                   FontAttributes="Bold"
+                                                   TextColor="{AppThemeBinding Light=#1F2937, Dark=#FFFFFF}" />
+                                            </StackLayout>
+
+                                            <!-- Flight Route Visual -->
+                                            <StackLayout Grid.Column="1" Orientation="Horizontal" HorizontalOptions="Center" VerticalOptions="Center" Spacing="5">
+                                                <BoxView BackgroundColor="{AppThemeBinding Light=#D1D5DB, Dark=#6B7280}"
+                                                     HeightRequest="2"
+                                                     WidthRequest="40"
+                                                     VerticalOptions="Center" />
+                                                <Label Text="✈️"
+                                                   FontSize="18"
+                                                   VerticalOptions="Center" />
+                                                <BoxView BackgroundColor="{AppThemeBinding Light=#D1D5DB, Dark=#6B7280}"
+                                                     HeightRequest="2"
+                                                     WidthRequest="40"
+                                                     VerticalOptions="Center" />
+                                            </StackLayout>
+
+                                            <!-- Arrival Info -->
+                                            <StackLayout Grid.Column="2" VerticalOptions="Center">
+                                                <Label Text="{Binding Destination}"
+                                                   FontSize="14"
+                                                   FontAttributes="Bold"
+                                                   TextColor="{AppThemeBinding Light=#6B7280, Dark=#9CA3AF}"
+                                                   HorizontalOptions="End" />
+                                                <Label Text="Direct"
+                                                   FontSize="12"
+                                                   TextColor="{AppThemeBinding Light=#10B981, Dark=#34D399}"
+                                                   FontAttributes="Bold"
+                                                   HorizontalOptions="End" />
+                                            </StackLayout>
+                                        </Grid>
+
+                                        <!-- Middle Row: Airline and Flight Number -->
+                                        <Grid Grid.Row="1" Margin="0,15,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Airline Logo Placeholder and Flight Info -->
+                                            <StackLayout Grid.Column="0" Orientation="Horizontal" Spacing="10">
+                                                <Frame BackgroundColor="{AppThemeBinding Light=#F3F4F6, Dark=#374151}"
+                                                   CornerRadius="20"
+                                                   Padding="8"
+                                                   WidthRequest="40"
+                                                   HeightRequest="40">
+                                                    <Label Text="{Binding FlightDesignator.CarrierCode}"
+                                                       FontSize="12"
+                                                       FontAttributes="Bold"
+                                                       TextColor="{AppThemeBinding Light=#6366F1, Dark=#A78BFA}"
+                                                       HorizontalOptions="Center"
+                                                       VerticalOptions="Center" />
+                                                </Frame>
+                                                <StackLayout VerticalOptions="Center">
+                                                    <Label Text="{Binding FlightNumber}"
+                                                       FontSize="16"
+                                                       FontAttributes="Bold"
+                                                       TextColor="{AppThemeBinding Light=#1F2937, Dark=#FFFFFF}" />
+                                                    <Label Text="{Binding Airline}"
+                                                       FontSize="12"
+                                                       TextColor="{AppThemeBinding Light=#6B7280, Dark=#9CA3AF}" />
+                                                </StackLayout>
+                                            </StackLayout>
+
+                                            <!-- Status -->
+                                            <Frame Grid.Column="2"
+                                               Padding="8,4"
+                                               CornerRadius="8"
+                                               VerticalOptions="Center">
+                                                <Frame.Triggers>
+                                                    <DataTrigger TargetType="Frame" Binding="{Binding Status}" Value="On Time">
+                                                        <Setter Property="BackgroundColor" Value="#DCFCE7" />
+                                                    </DataTrigger>
+                                                    <DataTrigger TargetType="Frame" Binding="{Binding Status}" Value="Delayed">
+                                                        <Setter Property="BackgroundColor" Value="#FEF3C7" />
+                                                    </DataTrigger>
+                                                    <DataTrigger TargetType="Frame" Binding="{Binding Status}" Value="Boarding">
+                                                        <Setter Property="BackgroundColor" Value="#DBEAFE" />
+                                                    </DataTrigger>
+                                                </Frame.Triggers>
+
+                                                <Label Text="{Binding Status}"
+                                                   FontSize="12"
+                                                   FontAttributes="Bold">
+                                                    <Label.Triggers>
+                                                        <DataTrigger TargetType="Label" Binding="{Binding Status}" Value="On Time">
+                                                            <Setter Property="TextColor" Value="#166534" />
+                                                        </DataTrigger>
+                                                        <DataTrigger TargetType="Label" Binding="{Binding Status}" Value="Delayed">
+                                                            <Setter Property="TextColor" Value="#92400E" />
+                                                        </DataTrigger>
+                                                        <DataTrigger TargetType="Label" Binding="{Binding Status}" Value="Boarding">
+                                                            <Setter Property="TextColor" Value="#1E40AF" />
+                                                        </DataTrigger>
+                                                    </Label.Triggers>
+                                                </Label>
+                                            </Frame>
+                                        </Grid>
+
+                                        <!-- Bottom Row: Gate and Terminal -->
+                                        <StackLayout Grid.Row="2" Orientation="Horizontal" Spacing="20" Margin="0,15,0,0">
+                                            <StackLayout Orientation="Horizontal" Spacing="5">
+                                                <Label Text="Gate:"
+                                                   FontSize="12"
+                                                   TextColor="{AppThemeBinding Light=#6B7280, Dark=#9CA3AF}" />
+                                                <Label Text="{Binding Gate}"
+                                                   FontSize="12"
+                                                   FontAttributes="Bold"
+                                                   TextColor="{AppThemeBinding Light=#1F2937, Dark=#FFFFFF}" />
+                                            </StackLayout>
+                                            <StackLayout Orientation="Horizontal" Spacing="5">
+                                                <Label Text="Terminal:"
+                                                   FontSize="12"
+                                                   TextColor="{AppThemeBinding Light=#6B7280, Dark=#9CA3AF}" />
+                                                <Label Text="{Binding Terminal}"
+                                                   FontSize="12"
+                                                   FontAttributes="Bold"
+                                                   TextColor="{AppThemeBinding Light=#1F2937, Dark=#FFFFFF}" />
+                                            </StackLayout>
+                                        </StackLayout>
+                                    </Grid>
+                                </Frame>
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <!-- Bottom Navigation -->
+                <Button Grid.Row="4"
+                    Text="← Back to Main Menu"
+                    FontSize="16"
+                    FontAttributes="Bold"
+                    BackgroundColor="{AppThemeBinding Light=#6B7280, Dark=#4B5563}"
+                    TextColor="White"
+                    CornerRadius="12"
+                    HeightRequest="50"
+                    Command="{Binding GoBackCommand}" />
+            </Grid>
+        </ScrollView>
+    </RefreshView>
+
+</ContentPage>
